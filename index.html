@@ -183,7 +183,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 </div>
 <div id="toolbar">
   <div class="tool-btn" id="btn-gps" onclick="toggleGPS()"><span class="icon">📍</span><span>GPS</span></div>
-  <div class="tool-btn" id="btn-rec" onclick="toggleRecord()"><span class="icon">⏺</span><span>Rota</span></div>
+  <div class="tool-btn" id="btn-fit" onclick="fitToData()"><span class="icon">⊡</span><span>Sığdır</span></div>
   <div class="tool-btn" id="btn-dist" onclick="toggleDistance()"><span class="icon">📏</span><span>Ölç</span></div>
   <div class="tool-btn" id="btn-search" onclick="toggleSearch()"><span class="icon">🔍</span><span>Ara</span></div>
   <div class="tool-btn" id="btn-maptype" onclick="togglePanel('maptype-panel','btn-maptype')"><span class="icon">🛰</span><span>Harita</span></div>
@@ -201,7 +201,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     <div class="tool-btn" id="btn-meas-hist" onclick="togglePanel('meas-hist-panel','btn-meas-hist');closeMore()"><span class="icon">📊</span><span id="btn-meas-hist-lbl">Geçmiş</span></div>
     <div class="tool-btn" id="btn-settings" onclick="togglePanel('settings-panel','btn-settings');closeMore()"><span class="icon">⚙️</span><span id="btn-settings-lbl">Ayarlar</span></div>
     <div class="tool-btn" id="btn-projects" onclick="togglePanel('projects-panel','btn-projects');closeMore()"><span class="icon">📁</span><span id="btn-projects-lbl">Projeler</span></div>
-    <div class="tool-btn" id="btn-fit" onclick="fitToData();closeMore()"><span class="icon">⊡</span><span>Sığdır</span></div>
+    <div class="tool-btn" id="btn-rec" onclick="toggleRecord();closeMore()"><span class="icon">⏺</span><span>Rota</span></div>
   </div>
 </div>
 <!-- Projeler paneli -->
@@ -340,7 +340,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     </div>
     <!-- Koordinatlar -->
     <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
-      <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">TUREF TM30</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:10px;color:var(--text2);">TUREF TM30</span>
+        <span id="pin-snap-badge" style="font-size:10px;color:var(--accent2);font-weight:600;display:none;">📐 Snap</span>
+      </div>
       <div style="font-size:13px;font-family:monospace;color:var(--text);" id="pin-coord-tm30">—</div>
       <div style="font-size:10px;color:var(--text2);margin-top:6px;margin-bottom:4px;">WGS84</div>
       <div style="font-size:13px;font-family:monospace;color:var(--text);" id="pin-coord-wgs">—</div>
@@ -1821,12 +1824,20 @@ function togglePinMode() {
   bar.style.display = pinMode ? 'flex' : 'none';
   if(pinMode) {
     closeAllPanels();
-    showToast(currentLang==='tr'?'Haritaya dokun — iğne bırak':'Tap map to place pin');
-    // İğne imleci
+    showToast(currentLang==='tr'?'Haritaya dokun — nokta koy':'Tap map to place pin');
     document.getElementById('map').style.cursor = 'crosshair';
+    map.getContainer().addEventListener('click', _pinClickHandler);
   } else {
     document.getElementById('map').style.cursor = '';
+    map.getContainer().removeEventListener('click', _pinClickHandler);
   }
+}
+
+function _pinClickHandler(e) {
+  if(!pinMode) { map.getContainer().removeEventListener('click', _pinClickHandler); return; }
+  const rect = map.getContainer().getBoundingClientRect();
+  const latlng = map.containerPointToLatLng([e.clientX - rect.left, e.clientY - rect.top]);
+  placePinAt(latlng);
 }
 
 function createPinIcon(name) {
@@ -1854,9 +1865,10 @@ function createLabelIcon(text) {
 function placePinAt(latlng) {
   const id = 'pin_' + Date.now();
 
-  // Snap varsa ona yapış
+  // Snap kontrolü — köşe, başlangıç/bitiş, daire merkezi vs.
   const snapPt = findSnapVertex(latlng);
   const useLl = snapPt || latlng;
+  const isSnapped = !!snapPt;
 
   const marker = L.marker(useLl, {
     icon: createPinIcon(''),
@@ -1877,17 +1889,24 @@ function placePinAt(latlng) {
     openPinModal(id);
   });
 
-  const pin = { id, ll: useLl, marker, labelMarker: null, name: '', label: '' };
+  const pin = { id, ll: useLl, marker, labelMarker: null, name: '', label: '', snapped: isSnapped };
   pins.push(pin);
 
-  // Pin modunu kapat ÖNCE
+  // Pin modunu kapat
   pinMode = false;
   document.getElementById('btn-pin').classList.remove('active');
   document.getElementById('pin-mode-bar').style.display = 'none';
   document.getElementById('map').style.cursor = '';
+  map.getContainer().removeEventListener('click', _pinClickHandler);
 
-  // Sonra modal aç
-  setTimeout(() => openPinModal(id), 200);
+  // Modal aç, isim input'una focus
+  setTimeout(() => {
+    openPinModal(id);
+    setTimeout(() => {
+      const inp = document.getElementById('pin-name-input');
+      if(inp) { inp.value = ''; inp.focus(); }
+    }, 150);
+  }, 100);
   return pin;
 }
 
@@ -1896,6 +1915,9 @@ function openPinModal(id) {
   if(!pin) return;
   activePinId = id;
 
+  // Snap badge
+  const snapBadge = document.getElementById('pin-snap-badge');
+  if(snapBadge) snapBadge.style.display = pin.snapped ? 'block' : 'none';
   // Koordinatları hesapla
   const lat = pin.ll.lat, lng = pin.ll.lng;
   const [N, E] = latLngToTM30(lat, lng);
