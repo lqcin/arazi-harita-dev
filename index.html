@@ -246,12 +246,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   </div>
 </div>
 <div class="panel" id="wp-panel">
-  <h3>İşaretli Noktalar <span style="font-size:11px;color:var(--text2);font-weight:400">(haritaya uzun bas)</span></h3>
-  <div style="display:flex;gap:6px;margin-bottom:10px;">
-    <button onclick="exportWaypoints()" style="flex:1;padding:7px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--accent);">📋 Dışa Aktar</button>
-    <button onclick="exportGPX()" style="flex:1;padding:7px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--accent2);">💾 GPX İndir</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <h3>Noktalar</h3>
+    <span id="wp-count" style="font-size:11px;color:var(--text2);"></span>
   </div>
-  <div id="wp-list"><div style="color:var(--text2);font-size:12px;text-align:center;padding:12px">Haritaya uzun bas → nokta ekle</div></div>
+  <div style="display:flex;gap:6px;margin-bottom:10px;">
+    <button onclick="exportPinsTXT()" style="flex:1;padding:7px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--accent);">📋 TXT</button>
+    <button onclick="exportPinsGPX()" style="flex:1;padding:7px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--accent2);">💾 GPX</button>
+    <button onclick="exportPinsCSV()" style="flex:1;padding:7px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--warn);">📊 CSV</button>
+  </div>
+  <div id="wp-list"></div>
 </div>
 <!-- Obje koordinat paneli -->
 <div id="obj-panel" style="position:absolute;left:10px;right:10px;bottom:82px;z-index:300;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:none;max-height:340px;overflow-y:auto;">
@@ -1786,31 +1790,82 @@ let activePinId = null;
 let draggingPin = null;
 
 function showPinList() {
-  // Pin listesini wp-panel'de göster
   const list = document.getElementById('wp-list');
+  const cnt = document.getElementById('wp-count');
+  if(cnt) cnt.textContent = pins.length ? pins.length + ' nokta' : '';
   if(!pins.length) {
-    list.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center;padding:12px">' + (currentLang==='tr'?'Henüz nokta yok — Nokta butonuna bas':'No pins yet — tap Pin button') + '</div>';
+    list.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center;padding:16px">' +
+      (currentLang==='tr'?'Henüz nokta yok<br>📌 Nokta butonuna bas':'No pins yet<br>📌 Tap Pin button') + '</div>';
   } else {
-    list.innerHTML = pins.map(p => {
+    list.innerHTML = pins.map((p,i) => {
       const [N,E] = latLngToTM30(p.ll.lat, p.ll.lng);
-      return `<div class="wp-item">
-        <span style="color:#ff9f43">📌</span>
-        <div style="flex:1;min-width:0">
-          <div class="wp-name">${p.name||('Nokta '+(pins.indexOf(p)+1))}</div>
-          <div class="wp-coord">${N.toFixed(1)}, ${E.toFixed(1)}</div>
+      const name = p.name || (currentLang==='tr'?'Nokta ':'Point ') + (i+1);
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:#ff9f43;flex-shrink:0;"></div>
+          <span style="font-size:13px;font-weight:600;color:var(--text);flex:1;">${name}</span>
+          <span onclick="openPinModal('${p.id}')" style="font-size:11px;color:var(--accent);cursor:pointer;padding:2px 6px;">✏️</span>
+          <span onclick="map.flyTo([${p.ll.lat},${p.ll.lng}],18);closeAllPanels();" style="font-size:11px;color:var(--accent2);cursor:pointer;padding:2px 6px;">📍</span>
+          <span onclick="deletePinById('${p.id}');showPinList();" style="font-size:14px;color:var(--danger);cursor:pointer;padding:2px 4px;">×</span>
         </div>
-        <span class="wp-goto" onclick="map.flyTo([${p.ll.lat},${p.ll.lng}],18);closeAllPanels();">Git</span>
-        <span class="wp-del" onclick="deletePinById('${p.id}');showPinList();">×</span>
+        <div style="font-size:10px;font-family:monospace;color:var(--text2);padding-left:18px;">
+          N: ${N.toFixed(3)} &nbsp; E: ${E.toFixed(3)}
+        </div>
       </div>`;
     }).join('');
   }
   togglePanel('wp-panel','btn-wp');
 }
 
+// Export fonksiyonları
+function exportPinsTXT() {
+  if(!pins.length){showToast(currentLang==='tr'?'Nokta yok':'No pins');return;}
+  let txt = 'No\tAd\tN (TM30)\tE (TM30)\tEnlem\tBoylam\n';
+  pins.forEach((p,i) => {
+    const [N,E] = latLngToTM30(p.ll.lat, p.ll.lng);
+    const name = p.name || (currentLang==='tr'?'Nokta ':'Point ') + (i+1);
+    txt += `${i+1}\t${name}\t${N.toFixed(3)}\t${E.toFixed(3)}\t${p.ll.lat.toFixed(6)}\t${p.ll.lng.toFixed(6)}\n`;
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}));
+  a.download = 'noktalar.txt'; a.click();
+  showToast('TXT indirildi');
+}
+
+function exportPinsCSV() {
+  if(!pins.length){showToast(currentLang==='tr'?'Nokta yok':'No pins');return;}
+  let csv = 'No,Ad,N_TM30,E_TM30,Enlem,Boylam\n';
+  pins.forEach((p,i) => {
+    const [N,E] = latLngToTM30(p.ll.lat, p.ll.lng);
+    const name = p.name || (currentLang==='tr'?'Nokta ':'Point ') + (i+1);
+    csv += `${i+1},"${name}",${N.toFixed(3)},${E.toFixed(3)},${p.ll.lat.toFixed(6)},${p.ll.lng.toFixed(6)}\n`;
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download = 'noktalar.csv'; a.click();
+  showToast('CSV indirildi');
+}
+
+function exportPinsGPX() {
+  if(!pins.length){showToast(currentLang==='tr'?'Nokta yok':'No pins');return;}
+  let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Field Map">\n';
+  pins.forEach((p,i) => {
+    const name = p.name || (currentLang==='tr'?'Nokta ':'Point ') + (i+1);
+    gpx += `  <wpt lat="${p.ll.lat.toFixed(6)}" lon="${p.ll.lng.toFixed(6)}"><name>${name}</name></wpt>
+`;
+  });
+  gpx += '<\/gpx>';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([gpx],{type:'application/gpx+xml'}));
+  a.download = 'noktalar.gpx'; a.click();
+  showToast('GPX indirildi');
+}
+
 function deletePinById(id) {
   const pin = pins.find(p=>p.id===id);
   if(!pin) return;
   map.removeLayer(pin.marker);
+  if(pin.nameMarker) map.removeLayer(pin.nameMarker);
   if(pin.labelMarker) map.removeLayer(pin.labelMarker);
   pins = pins.filter(p=>p.id!==id);
 }
@@ -1865,7 +1920,7 @@ function createLabelIcon(text) {
 function placePinAt(latlng) {
   const id = 'pin_' + Date.now();
 
-  // Snap kontrolü — köşe, başlangıç/bitiş, daire merkezi vs.
+  // Snap kontrolü
   const snapPt = findSnapVertex(latlng);
   const useLl = snapPt || latlng;
   const isSnapped = !!snapPt;
@@ -1876,11 +1931,32 @@ function placePinAt(latlng) {
     autoPan: true
   }).addTo(map);
 
+  // Sürüklerken snap preview
+  marker.on('drag', e => {
+    const pos = e.target.getLatLng();
+    const snap = findSnapVertex(pos);
+    if(snap) {
+      e.target.setLatLng(snap);
+      if(!snapMarker) snapMarker = L.circleMarker(snap,{radius:10,color:'#00d4aa',fillColor:'#00d4aa',fillOpacity:0.3,weight:2}).addTo(map);
+      else snapMarker.setLatLng(snap);
+    } else {
+      removeSnapPreview();
+    }
+  });
+
+  // Sürükleme bitti — snap varsa yapış, isim etiketini güncelle
   marker.on('dragend', e => {
     const pin = pins.find(p=>p.id===id);
     if(!pin) return;
-    pin.ll = e.target.getLatLng();
-    if(pin.labelMarker) pin.labelMarker.setLatLng(pin.ll);
+    const pos = e.target.getLatLng();
+    const snap = findSnapVertex(pos);
+    const finalLl = snap || pos;
+    pin.ll = finalLl;
+    pin.snapped = !!snap;
+    marker.setLatLng(finalLl);
+    removeSnapPreview();
+    // İsim etiketini güncelle
+    if(pin.nameMarker) pin.nameMarker.setLatLng(finalLl);
     updatePinPopupCoords(pin);
   });
 
@@ -1889,7 +1965,7 @@ function placePinAt(latlng) {
     openPinModal(id);
   });
 
-  const pin = { id, ll: useLl, marker, labelMarker: null, name: '', label: '', snapped: isSnapped };
+  const pin = { id, ll: useLl, marker, nameMarker: null, labelMarker: null, name: '', label: '', snapped: isSnapped };
   pins.push(pin);
 
   // Pin modunu kapat
