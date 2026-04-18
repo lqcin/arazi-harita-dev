@@ -802,7 +802,42 @@ function renderLayerList(){
   list.innerHTML=ids.map(id=>{const i=layerGroups[id];return`<div class="layer-item"><div class="layer-color" style="background:${i.color}"></div><span class="layer-name">${i.name}</span><span class="layer-count">${i.count}</span><div class="layer-toggle ${i.visible?'':'off'}" onclick="toggleLayer('${id}')"></div></div>`;}).join('');
 }
 function toggleLayer(id){const i=layerGroups[id];if(!i)return;i.visible=!i.visible;i.visible?map.addLayer(i.layer):map.removeLayer(i.layer);renderLayerList();}
-function fitToData(){if(allBounds)map.fitBounds(allBounds);else showToast('Henüz dosya yüklenmedi');}
+function fitToData(){
+  const ids=Object.keys(layerGroups);
+  if(!ids.length){showToast(currentLang==='tr'?'Henüz dosya yüklenmedi':'No file loaded');return;}
+  if(ids.length===1){
+    const b=layerGroups[ids[0]].bounds;
+    if(b)map.fitBounds(b,{padding:[30,30],maxZoom:19});
+    return;
+  }
+  showFitPanel();
+}
+
+function showFitPanel(){
+  const list=document.getElementById('fit-list');
+  list.innerHTML=Object.entries(layerGroups).map(([id,info])=>
+    `<div onclick="fitToLayer('${id}')" style="padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;">
+      <div style="width:10px;height:10px;border-radius:50%;background:${info.color};flex-shrink:0;"></div>
+      <span style="color:var(--text)">${info.name}</span>
+    </div>`
+  ).join('')+
+  `<div onclick="fitAllLayers()" style="padding:9px 12px;cursor:pointer;font-size:13px;color:var(--accent);font-weight:600;">📐 ${currentLang==='tr'?'Tümünü Sığdır':'Fit All'}</div>`;
+  document.getElementById('fit-panel').style.display='block';
+  document.getElementById('btn-fit').classList.add('active');
+}
+
+function fitToLayer(id){
+  const info=layerGroups[id];
+  if(info&&info.bounds)map.fitBounds(info.bounds,{padding:[30,30],maxZoom:19});
+  document.getElementById('fit-panel').style.display='none';
+  document.getElementById('btn-fit').classList.remove('active');
+}
+
+function fitAllLayers(){
+  if(allBounds)map.fitBounds(allBounds,{padding:[30,30],maxZoom:19});
+  document.getElementById('fit-panel').style.display='none';
+  document.getElementById('btn-fit').classList.remove('active');
+}
 
 function togglePanel(panelId,btnId){
   const panel=document.getElementById(panelId);const open=panel.style.display==='block';
