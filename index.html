@@ -231,6 +231,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     </div>
   </div>
 </div>
+<div class="panel" id="fit-panel" style="position:absolute;left:10px;right:10px;bottom:82px;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);display:none;max-height:280px;overflow-y:auto;">
+  <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text);">Dosyaya Git</div>
+  <div id="fit-list"></div>
+</div>
 <div class="panel" id="layer-panel"><h3>Katmanlar</h3><div id="layer-list"><div style="color:var(--text2);font-size:12px;text-align:center;padding:12px">Henüz katman yok</div></div></div>
 <div id="maptype-panel">
   <h3>Harita tipi</h3>
@@ -787,8 +791,10 @@ function clearDistance(){
 }
 
 // ── Layers ────────────────────────────────────────────────
-function addLayer(name,lg,color,count){
-  const id='l'+Date.now();layerGroups[id]={layer:lg,visible:true,name,color,count};lg.addTo(map);renderLayerList();
+function addLayer(name,lg,color,count,bounds){
+  const id='l'+Date.now();
+  layerGroups[id]={layer:lg,visible:true,name,color,count,bounds:bounds||allBounds};
+  lg.addTo(map);renderLayerList();
 }
 function renderLayerList(){
   const list=document.getElementById('layer-list');const ids=Object.keys(layerGroups);
@@ -803,7 +809,7 @@ function togglePanel(panelId,btnId){
   closeAllPanels();if(!open){panel.style.display='block';document.getElementById(btnId).classList.add('active');}
 }
 function closeAllPanels(exceptDist){
-  const panels=['layer-panel','maptype-panel','wp-panel','meas-hist-panel','settings-panel','projects-panel','obj-panel'];
+  const panels=['layer-panel','maptype-panel','wp-panel','meas-hist-panel','settings-panel','projects-panel','obj-panel','fit-panel'];
   const btns=['btn-layers','btn-maptype','btn-wp','btn-meas-hist','btn-settings','btn-projects'];
   panels.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   btns.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
