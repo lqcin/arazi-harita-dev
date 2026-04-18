@@ -96,6 +96,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 #loading{position:absolute;inset:0;z-index:600;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
 .spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.pin-tip{background:rgba(26,26,46,0.92)!important;border:1px solid rgba(255,159,67,0.6)!important;border-radius:4px!important;color:#e8eaf0!important;font-size:11px!important;font-weight:600!important;padding:2px 8px!important;box-shadow:none!important;white-space:nowrap!important;}
+.pin-tip::before{display:none!important;}
 .leaflet-marker-icon{background:none!important;border:none!important;box-shadow:none!important;}
 
 .leaflet-marker-shadow{display:none!important;}
@@ -2027,7 +2029,13 @@ function savePinInfo() {
   }
 
   // İkon güncelle (isim varsa tooltip)
-  if(pin.name) pin.marker.bindTooltip(pin.name, {permanent:false, direction:'top'});
+  pin.marker.unbindTooltip();
+  if(pin.name) pin.marker.bindTooltip(pin.name, {
+    permanent: true,
+    direction: 'right',
+    offset: [8, -12],
+    className: 'pin-tip'
+  });
 
   closePinModal();
   showToast(currentLang==='tr'?'Kaydedildi':'Saved');
