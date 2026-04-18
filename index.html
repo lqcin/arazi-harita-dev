@@ -395,7 +395,8 @@ let recording=false,recTrack=[],recPolyline=null,recStart=null,recTimer=null;
 let waypoints=[],pendingWP=null,pendingPhoto=null;
 let colorIdx=0,compassActive=false,compassWatcher=null;
 let kmlObjects=[];
-let allVertices=[]; // tüm KML köşe noktaları snap için
+let allVertices=[]; // tüm köşe noktaları snap için
+let allSnapSegments=[]; // tüm çizgi segmentleri — segment snap için
 let snapMarker=null; // snap önizleme marker
 const COLORS=['#4a9eff','#00d4aa','#ff9f43','#ff6b6b','#a29bfe','#fd79a8','#55efc4','#74b9ff'];
 
@@ -687,40 +688,108 @@ function setDistMode(m){
   document.getElementById('dmode-area').classList.toggle('active',m==='area');
   document.getElementById('dist-hint').textContent=m==='line'?'Haritada iki noktaya dokun':'En az 3 noktaya dokun, son noktaya çift dokun';
 }
-// ── Snap to vertex ───────────────────────────────────────
-function findSnapVertex(latlng) {
-  if(!allVertices.length) return null;
-  // Zoom'a göre snap mesafesi: ekranda ~25px karşılığı metre
-  const zoom = map.getZoom();
-  const snapMeters = 25 * 40075016 * Math.cos(latlng.lat * Math.PI/180) / (256 * Math.pow(2, zoom));
-  let closest = null, minDist = snapMeters;
-  for(let v of allVertices) {
-    const d = latlng.distanceTo(v);
-    if(d < minDist) { minDist = d; closest = v; }
-  }
-  return closest;
+// ── Snap motoru ───────────────────────────────────────────
+// Snap tipleri (öncelik sırası): VERTEX > MIDPOINT > SEGMENT
+function _snapActive() {
+  return distModeActive || pinMode;
 }
 
+// Segment üzerinde en yakın nokta (Euclidean — lat/lng küçük alanda yeterli)
+function _closestPointOnSegment(p, a, b) {
+  const dx = b[0]-a[0], dy = b[1]-a[1];
+  if(dx===0&&dy===0) return a;
+  const t = Math.max(0, Math.min(1, ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy)));
+  return [a[0]+t*dx, a[1]+t*dy];
+}
+
+function findSnapPoint(latlng) {
+  if(!allVertices.length&&!allSnapSegments.length) return null;
+  const zoom = map.getZoom();
+  // snapRadius px → metre (ekvatorda)
+  const snapMeters = snapRadius * 40075016 * Math.cos(latlng.lat*Math.PI/180) / (256*Math.pow(2,zoom));
+  const p = [latlng.lat, latlng.lng];
+
+  // 1) Köşe snap (en yüksek öncelik)
+  let bestVertex=null, bestVDist=snapMeters;
+  for(const v of allVertices){
+    const d=latlng.distanceTo(v);
+    if(d<bestVDist){bestVDist=d;bestVertex=v;}
+  }
+  if(bestVertex) return {ll:bestVertex, type:'vertex'};
+
+  // 2) Midpoint snap (köşeye yapışmadıysa)
+  let bestMid=null, bestMDist=snapMeters;
+  for(const seg of allSnapSegments){
+    const mid=[(seg[0][0]+seg[1][0])/2,(seg[0][1]+seg[1][1])/2];
+    const midLl=L.latLng(mid[0],mid[1]);
+    const d=latlng.distanceTo(midLl);
+    if(d<bestMDist){bestMDist=d;bestMid=midLl;}
+  }
+  if(bestMid) return {ll:bestMid, type:'midpoint'};
+
+  // 3) Segment üzerinde en yakın nokta
+  let bestSeg=null, bestSDist=snapMeters*0.6; // segment snap biraz daha kısa menzil
+  for(const seg of allSnapSegments){
+    const closest=_closestPointOnSegment(p,seg[0],seg[1]);
+    const closestLl=L.latLng(closest[0],closest[1]);
+    const d=latlng.distanceTo(closestLl);
+    if(d<bestSDist){bestSDist=d;bestSeg=closestLl;}
+  }
+  if(bestSeg) return {ll:bestSeg, type:'segment'};
+
+  return null;
+}
+
+// Geriye uyumluluk — eski çağrılar için
+function findSnapVertex(latlng) {
+  const r=findSnapPoint(latlng);
+  return r?r.ll:null;
+}
+
+// Snap tiplerine göre renk ve ikon
+const SNAP_STYLE = {
+  vertex:  {color:'#00d4aa', fill:'#00d4aa', radius:10, label:'⬡'},
+  midpoint:{color:'#ff9f43', fill:'#ff9f43', radius:8,  label:'◆'},
+  segment: {color:'#a29bfe', fill:'#a29bfe', radius:7,  label:'✕'},
+};
+
+let snapLabelMarker=null;
+
 function showSnapPreview(latlng) {
-  if(!distModeActive) { removeSnapPreview(); return; }
-  const snap = findSnapVertex(latlng);
+  if(!_snapActive()) { removeSnapPreview(); return; }
+  const snap = findSnapPoint(latlng);
   if(snap) {
+    const s = SNAP_STYLE[snap.type]||SNAP_STYLE.vertex;
     if(!snapMarker) {
-      snapMarker = L.circleMarker(snap, {
-        radius: 10, color: '#00d4aa', fillColor: '#00d4aa',
-        fillOpacity: 0.3, weight: 2.5, className: ''
+      snapMarker = L.circleMarker(snap.ll, {
+        radius:s.radius, color:s.color, fillColor:s.fill,
+        fillOpacity:0.35, weight:2.5, className:''
       }).addTo(map);
     } else {
-      snapMarker.setLatLng(snap);
+      snapMarker.setLatLng(snap.ll);
+      snapMarker.setStyle({color:s.color,fillColor:s.fill,radius:s.radius});
     }
-    snapMarker.setStyle({opacity:1, fillOpacity:0.3});
+    // Snap tipi etiketi
+    if(!snapLabelMarker){
+      snapLabelMarker=L.marker(snap.ll,{
+        icon:L.divIcon({
+          html:`<div id="snap-type-badge" style="background:${s.color};color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;pointer-events:none;">${snap.type==='vertex'?'KÖŞE':snap.type==='midpoint'?'ORTA':'SEGMENT'}</div>`,
+          className:'',iconAnchor:[-12,-4]
+        }),interactive:false,zIndexOffset:1000
+      }).addTo(map);
+    } else {
+      snapLabelMarker.setLatLng(snap.ll);
+      const badge=snapLabelMarker.getElement()?.querySelector('#snap-type-badge');
+      if(badge){badge.style.background=s.color;badge.textContent=snap.type==='vertex'?'KÖŞE':snap.type==='midpoint'?'ORTA':'SEGMENT';}
+    }
   } else {
     removeSnapPreview();
   }
 }
 
 function removeSnapPreview() {
-  if(snapMarker) { map.removeLayer(snapMarker); snapMarker = null; }
+  if(snapMarker){map.removeLayer(snapMarker);snapMarker=null;}
+  if(snapLabelMarker){map.removeLayer(snapLabelMarker);snapLabelMarker=null;}
 }
 
 function onMapClick(e){
@@ -732,14 +801,15 @@ function onMapClick(e){
   }
   if(!distModeActive)return;
   // Snap kontrolü
-  const snapPt = findSnapVertex(e.latlng);
-  const usePt = snapPt || e.latlng;
-  const isSnapped = !!snapPt;
+  const snapResult = findSnapPoint(e.latlng);
+  const usePt = snapResult ? snapResult.ll : e.latlng;
+  const isSnapped = !!snapResult;
   distPoints.push(usePt);
-  const markerColor = isSnapped ? '#00d4aa' : '#ff9f43';
+  const markerColor = isSnapped ? (snapResult.type==='vertex'?'#00d4aa':snapResult.type==='midpoint'?'#ff9f43':'#a29bfe') : '#ff9f43';
   const m = L.circleMarker(usePt,{radius:6,color:'#fff',fillColor:markerColor,fillOpacity:1,weight:2}).addTo(map);
   if(isSnapped) {
-    m.bindTooltip('📐 Köşeye snap', {permanent:false, direction:'top', className:''}).openTooltip();
+    const tipText = snapResult.type==='vertex'?'⬡ Köşeye snap':snapResult.type==='midpoint'?'◆ Orta noktaya snap':'✕ Segmente snap';
+    m.bindTooltip(tipText, {permanent:false, direction:'top', className:''}).openTooltip();
     setTimeout(()=>m.closeTooltip(), 1500);
   }
   distMarkers.push(m);
@@ -915,8 +985,8 @@ function parseKML(text,name){
     const lineEl=pm.querySelector('LineString coordinates');
     const polyEl=pm.querySelector('Polygon outerBoundaryIs LinearRing coordinates');
     const ptEl=pm.querySelector('Point coordinates');
-    if(lineEl){const pts=kmlPts(lineEl.textContent);if(pts.length){const pl=L.polyline(pts,{color,weight:2}).addTo(lg);pl.bindPopup(pname||'Çizgi');pl.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Çizgi',pts,type:'line'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Çizgi',ll:L.latLng(pts[0]),pts,type:'line'});pts.forEach(p=>allVertices.push(L.latLng(p[0],p[1])));count++;}}
-    if(polyEl){const pts=kmlPts(polyEl.textContent);if(pts.length){const pg=L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg);pg.bindPopup(pname||'Alan');pg.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Alan',pts,type:'poly'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Alan',ll:L.latLng(pts[0]),pts,type:'poly'});pts.forEach(p=>allVertices.push(L.latLng(p[0],p[1])));count++;}}
+    if(lineEl){const pts=kmlPts(lineEl.textContent);if(pts.length){const pl=L.polyline(pts,{color,weight:2}).addTo(lg);pl.bindPopup(pname||'Çizgi');pl.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Çizgi',pts,type:'line'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Çizgi',ll:L.latLng(pts[0]),pts,type:'line'});pts.forEach(p=>allVertices.push(L.latLng(p[0],p[1])));for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
+    if(polyEl){const pts=kmlPts(polyEl.textContent);if(pts.length){const pg=L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg);pg.bindPopup(pname||'Alan');pg.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Alan',pts,type:'poly'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Alan',ll:L.latLng(pts[0]),pts,type:'poly'});pts.forEach(p=>allVertices.push(L.latLng(p[0],p[1])));for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
     if(ptEl){const p=ptEl.textContent.trim().split(/[\s,]+/);if(p.length>=2){const lat=parseFloat(p[1]),lng=parseFloat(p[0]);if(!isNaN(lat)&&!isNaN(lng)){L.circleMarker([lat,lng],{radius:5,color,fillColor:color,fillOpacity:0.9}).addTo(lg).bindPopup(pname||'Nokta');coords.push([lat,lng]);kmlObjects.push({name:pname||'Nokta',ll:L.latLng(lat,lng),pts:[[lat,lng]],type:'point'});count++;}}}
   });
   if(coords.length){
@@ -1092,11 +1162,12 @@ function parseDXFWithProj(text,name,offset){
         if(x10.length>0&&y20.length>0){
           const color=resolveColor(entityACI,layerName);
           const conv=(x,y)=>convertCoord(x,y,offset);
-          if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(!isNaN(lat)&&lat>=-90&&lat<=90){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9}).addTo(lg);coords.push([lat,lng]);count++;}}
-          else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(!isNaN(la1)&&la1>=-90&&la1<=90){L.polyline([[la1,ln1],[la2,ln2]],{color,weight:1.5}).addTo(lg);coords.push([la1,ln1],[la2,ln2]);count++;}}
-          else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>!isNaN(p[0])&&p[0]>=-90&&p[0]<=90);if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>coords.push(p));count++;}}
+          if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(!isNaN(lat)&&lat>=-90&&lat<=90){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9}).addTo(lg);coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));count++;}}
+          else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(!isNaN(la1)&&la1>=-90&&la1<=90){L.polyline([[la1,ln1],[la2,ln2]],{color,weight:1.5}).addTo(lg);coords.push([la1,ln1],[la2,ln2]);allVertices.push(L.latLng(la1,ln1),L.latLng(la2,ln2));// midpoint snap
+          allSnapSegments.push([[la1,ln1],[la2,ln2]]);count++;}}
+          else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>!isNaN(p[0])&&p[0]>=-90&&p[0]<=90);if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
           else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(!isNaN(lat)&&lat>=-90&&lat<=90){const circ=L.circle([lat,lng],{radius,color,weight:1.5,fillOpacity:0.06}).addTo(lg);circ.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:'Daire',pts:[[lat,lng]],type:'circle',radius});});coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));count++;}}
-          else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>!isNaN(p[0])&&p[0]>=-90&&p[0]<=90);if(pts.length>1){L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>coords.push(p));count++;}}
+          else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>!isNaN(p[0])&&p[0]>=-90&&p[0]<=90);if(pts.length>1){L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
         }
       }
     }
@@ -1598,7 +1669,7 @@ function deleteUserProject(id) {
 
 function clearAllLayers() {
   Object.values(layerGroups).forEach(lg=>map.removeLayer(lg.layer));
-  layerGroups={};allBounds=null;kmlObjects=[];allVertices=[];
+  layerGroups={};allBounds=null;kmlObjects=[];allVertices=[];allSnapSegments=[];
   renderLayerList();
   document.getElementById('file-label').textContent='DXF · KML · KMZ';
 }
@@ -1829,16 +1900,7 @@ function checkNightMode(){
   else if(!isNight&&currentBase==='dark')setMapType('osm');
 }
 
-// findSnapVertex'i snapRadius kullanacak şekilde güncelle
-const _origFindSnap=findSnapVertex;
-window.findSnapVertex=function(latlng){
-  if(!allVertices.length)return null;
-  const zoom=map.getZoom();
-  const snapMeters=snapRadius*40075016*Math.cos(latlng.lat*Math.PI/180)/(256*Math.pow(2,zoom));
-  let closest=null,minDist=snapMeters;
-  for(let v of allVertices){const d=latlng.distanceTo(v);if(d<minDist){minDist=d;closest=v;}}
-  return closest;
-};
+// findSnapVertex snapRadius'u zaten kullanıyor — override gereksiz
 
 // ── finishArea'ya ölçüm kaydet ────────────────────────────
 const _origFinishArea=finishArea;
@@ -2025,10 +2087,11 @@ function createLabelIcon(text) {
 function placePinAt(latlng) {
   const id = 'pin_' + Date.now();
 
-  // Snap kontrolü
-  const snapPt = findSnapVertex(latlng);
-  const useLl = snapPt || latlng;
-  const isSnapped = !!snapPt;
+  // Snap kontrolü — tip bilgisi de al
+  const snapResult = findSnapPoint(latlng);
+  const useLl = snapResult ? snapResult.ll : latlng;
+  const isSnapped = !!snapResult;
+  const snapType = snapResult ? snapResult.type : null;
 
   const marker = L.marker(useLl, {
     icon: createPinIcon(''),
@@ -2039,29 +2102,27 @@ function placePinAt(latlng) {
   // Sürüklerken snap preview
   marker.on('drag', e => {
     const pos = e.target.getLatLng();
-    const snap = findSnapVertex(pos);
+    const snap = findSnapPoint(pos);
     if(snap) {
-      e.target.setLatLng(snap);
-      if(!snapMarker) snapMarker = L.circleMarker(snap,{radius:10,color:'#00d4aa',fillColor:'#00d4aa',fillOpacity:0.3,weight:2}).addTo(map);
-      else snapMarker.setLatLng(snap);
+      e.target.setLatLng(snap.ll);
+      showSnapPreview(pos);
     } else {
       removeSnapPreview();
     }
   });
 
-  // Sürükleme bitti — snap varsa yapış, isim etiketini güncelle
+  // Sürükleme bitti — snap varsa yapış
   marker.on('dragend', e => {
     const pin = pins.find(p=>p.id===id);
     if(!pin) return;
     const pos = e.target.getLatLng();
-    const snap = findSnapVertex(pos);
-    const finalLl = snap || pos;
+    const snap = findSnapPoint(pos);
+    const finalLl = snap ? snap.ll : pos;
     pin.ll = finalLl;
     pin.snapped = !!snap;
+    pin.snapType = snap ? snap.type : null;
     marker.setLatLng(finalLl);
     removeSnapPreview();
-    // İsim etiketini güncelle
-    // popup marker ile birlikte hareket eder
     updatePinPopupCoords(pin);
   });
 
@@ -2070,7 +2131,7 @@ function placePinAt(latlng) {
     openPinModal(id);
   });
 
-  const pin = { id, ll: useLl, marker, nameMarker: null, labelMarker: null, name: '', label: '', snapped: isSnapped };
+  const pin = { id, ll: useLl, marker, nameMarker: null, labelMarker: null, name: '', label: '', snapped: isSnapped, snapType };
   pins.push(pin);
 
   // Pin modunu kapat
@@ -2079,8 +2140,9 @@ function placePinAt(latlng) {
   document.getElementById('pin-mode-bar').style.display = 'none';
   document.getElementById('map').style.cursor = '';
   map.getContainer().removeEventListener('click', _pinClickHandler);
+  removeSnapPreview();
 
-  // Modal aç, isim input'una focus
+  // Modal aç
   setTimeout(() => {
     openPinModal(id);
     setTimeout(() => {
@@ -2098,7 +2160,15 @@ function openPinModal(id) {
 
   // Snap badge
   const snapBadge = document.getElementById('pin-snap-badge');
-  if(snapBadge) snapBadge.style.display = pin.snapped ? 'block' : 'none';
+  if(snapBadge) {
+    if(pin.snapped){
+      const tipText = pin.snapType==='vertex'?'⬡ Köşe':pin.snapType==='midpoint'?'◆ Orta':'✕ Segment';
+      snapBadge.textContent = tipText;
+      snapBadge.style.display = 'block';
+    } else {
+      snapBadge.style.display = 'none';
+    }
+  }
   // Koordinatları hesapla
   const lat = pin.ll.lat, lng = pin.ll.lng;
   const [N, E] = latLngToTM30(lat, lng);
