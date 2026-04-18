@@ -1868,7 +1868,7 @@ function deletePinById(id) {
   const pin = pins.find(p=>p.id===id);
   if(!pin) return;
   map.removeLayer(pin.marker);
-  if(pin.nameMarker) { map.removeLayer(pin.nameMarker); pin.nameMarker = null; }
+
   if(pin.labelMarker) map.removeLayer(pin.labelMarker);
   pins = pins.filter(p=>p.id!==id);
 }
@@ -1900,25 +1900,14 @@ function _pinClickHandler(e) {
 
 function createPinIcon(label) {
   return L.divIcon({
-    html: `<svg width="32" height="44" viewBox="0 0 32 44" xmlns="http://www.w3.org/2000/svg">
-      <path d="M16 0 C7.2 0 0 7.2 0 16 C0 28 16 44 16 44 C16 44 32 28 32 16 C32 7.2 24.8 0 16 0Z" fill="#ff9f43" stroke="#fff" stroke-width="2"/>
-      <circle cx="16" cy="16" r="6" fill="#fff"/>
-    </svg>`,
-    className: '',
-    iconSize: [32, 44],
-    iconAnchor: [16, 44]
+    html: `<div style="background:#ff9f43;border:2px solid #fff;border-radius:50% 50% 50% 0;width:22px;height:22px;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 22],
+    className: ''
   });
 }
 
-function createNameIcon(text) {
-  // iconSize null olunca Leaflet div'in gerçek boyutunu kullanır
-  return L.divIcon({
-    html: `<div style="background:rgba(26,26,46,0.92);color:#e8eaf0;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid rgba(255,159,67,0.6);pointer-events:none;">${text}</div>`,
-    className: '',
-    iconSize: null,
-    iconAnchor: [-14, 28]
-  });
-}
+
 
 function createLabelIcon(text) {
   return L.divIcon({
@@ -1967,7 +1956,7 @@ function placePinAt(latlng) {
     marker.setLatLng(finalLl);
     removeSnapPreview();
     // İsim etiketini güncelle
-    if(pin.nameMarker) pin.nameMarker.setLatLng(finalLl);
+    // popup marker ile birlikte hareket eder
     updatePinPopupCoords(pin);
   });
 
