@@ -1898,17 +1898,46 @@ function _pinClickHandler(e) {
   placePinAt(latlng);
 }
 
-function createPinIcon(name) {
+function createPinIcon(label) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 32; canvas.height = 44;
+  const ctx = canvas.getContext('2d');
+  // Gövde
+  ctx.beginPath();
+  ctx.arc(16, 16, 14, 0, Math.PI*2);
+  ctx.fillStyle = '#ff9f43';
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  // Uç
+  ctx.beginPath();
+  ctx.moveTo(9, 26); ctx.lineTo(16, 44); ctx.lineTo(23, 26);
+  ctx.fillStyle = '#ff9f43';
+  ctx.fill();
+  // Uç kenar
+  ctx.beginPath();
+  ctx.moveTo(9, 26); ctx.lineTo(16, 44); ctx.lineTo(23, 26);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // İç daire
+  ctx.beginPath();
+  ctx.arc(16, 16, 5, 0, Math.PI*2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  return L.icon({
+    iconUrl: canvas.toDataURL(),
+    iconSize: [32, 44],
+    iconAnchor: [16, 44],
+  });
+}
+
+function createNameIcon(text) {
   return L.divIcon({
-    html: `<div style="position:relative;width:28px;height:36px;">
-      <svg width="28" height="36" viewBox="0 0 28 36">
-        <path d="M14 0 C6.3 0 0 6.3 0 14 C0 24.5 14 36 14 36 C14 36 28 24.5 28 14 C28 6.3 21.7 0 14 0Z" fill="#ff9f43" stroke="#fff" stroke-width="1.5"/>
-        <circle cx="14" cy="14" r="5" fill="#fff"/>
-      </svg>
-    </div>`,
-    iconSize: [28, 36],
-    iconAnchor: [14, 36],
-    className: ''
+    html: `<div style="background:rgba(26,26,46,0.92);color:#e8eaf0;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid rgba(255,159,67,0.6);pointer-events:none;">${text}</div>`,
+    className: '',
+    iconAnchor: [-14, 28]
   });
 }
 
