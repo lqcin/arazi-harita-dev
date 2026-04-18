@@ -1,0 +1,19 @@
+{
+  "name": "Arazi Harita",
+  "short_name": "AraziHarita",
+  "description": "Field survey map viewer — DXF, KML, KMZ support with GPS tracking",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#0f0f1a",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "navigation"]
+}
