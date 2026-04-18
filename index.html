@@ -872,7 +872,17 @@ function parseKML(text,name){
     if(polyEl){const pts=kmlPts(polyEl.textContent);if(pts.length){const pg=L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg);pg.bindPopup(pname||'Alan');pg.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Alan',pts,type:'poly'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Alan',ll:L.latLng(pts[0]),pts,type:'poly'});pts.forEach(p=>allVertices.push(L.latLng(p[0],p[1])));count++;}}
     if(ptEl){const p=ptEl.textContent.trim().split(/[\s,]+/);if(p.length>=2){const lat=parseFloat(p[1]),lng=parseFloat(p[0]);if(!isNaN(lat)&&!isNaN(lng)){L.circleMarker([lat,lng],{radius:5,color,fillColor:color,fillOpacity:0.9}).addTo(lg).bindPopup(pname||'Nokta');coords.push([lat,lng]);kmlObjects.push({name:pname||'Nokta',ll:L.latLng(lat,lng),pts:[[lat,lng]],type:'point'});count++;}}}
   });
-  if(coords.length){const b=L.latLngBounds(coords);allBounds=b;map.fitBounds(b,{padding:[20,20],maxZoom:20});addLayer(name,lg,color,count+' obj',b);showToast(count+' obje yüklendi');}
+  if(coords.length){
+    const b=L.latLngBounds(coords);
+    allBounds=b;
+    // Tek nokta veya çok küçük alan — minimum zoom 15
+    const sw=b.getSouthWest(), ne=b.getNorthEast();
+    const isSmall = Math.abs(ne.lat-sw.lat)<0.001 && Math.abs(ne.lng-sw.lng)<0.001;
+    if(isSmall) map.setView(b.getCenter(),16);
+    else map.fitBounds(b,{padding:[30,30],maxZoom:19});
+    addLayer(name,lg,color,count+' obj',b);
+    showToast(count+' obje yüklendi');
+  }
   else showToast(t('kmlEmpty'));
 }
 function kmlPts(text){return text.trim().split(/\s+/).map(c=>{const p=c.split(',');if(p.length>=2){const lng=parseFloat(p[0]),lat=parseFloat(p[1]);if(!isNaN(lat)&&!isNaN(lng))return[lat,lng];}return null;}).filter(Boolean);}
@@ -917,7 +927,14 @@ function applyProj(){closeProjModal();if(pendingDXFText)parseDXFWithProj(pending
 function parseDXFWithProj(text,name,offset){
   const lines=text.split('\n').map(l=>l.trim());const lg=L.layerGroup();const coords=[];let count=0;
   const color=COLORS[colorIdx++%COLORS.length];let i=0;
+  // Sadece ENTITIES section'ını parse et — BLOCKS section'ını atla
+  let inEntities=false, inBlocks=false;
   while(i<lines.length-1){
+    // Section kontrolü
+    if(lines[i]==='2'&&lines[i+1]==='ENTITIES'){inEntities=true;inBlocks=false;}
+    if(lines[i]==='2'&&lines[i+1]==='BLOCKS'){inBlocks=true;inEntities=false;}
+    if(lines[i]==='0'&&lines[i+1]==='ENDSEC'){inEntities=false;inBlocks=false;}
+    if(!inEntities){i++;continue;}
     if(lines[i]==='0'){
       const etype=lines[i+1].trim();
       if(['LINE','LWPOLYLINE','POLYLINE','POINT','CIRCLE','ARC','SPLINE'].includes(etype)){
@@ -935,7 +952,17 @@ function parseDXFWithProj(text,name,offset){
     }
     i++;
   }
-  if(coords.length){const b=L.latLngBounds(coords);allBounds=b;map.fitBounds(b,{padding:[20,20],maxZoom:20});addLayer(name,lg,color,count+' obj',b);showToast(count+' obje yüklendi');}
+  if(coords.length){
+    const b=L.latLngBounds(coords);
+    allBounds=b;
+    // Tek nokta veya çok küçük alan — minimum zoom 15
+    const sw=b.getSouthWest(), ne=b.getNorthEast();
+    const isSmall = Math.abs(ne.lat-sw.lat)<0.001 && Math.abs(ne.lng-sw.lng)<0.001;
+    if(isSmall) map.setView(b.getCenter(),16);
+    else map.fitBounds(b,{padding:[30,30],maxZoom:19});
+    addLayer(name,lg,color,count+' obj',b);
+    showToast(count+' obje yüklendi');
+  }
   else showToast('Geometri bulunamadı — koordinat sistemi doğru mu?');
 }
 
