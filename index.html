@@ -802,7 +802,7 @@ function renderLayerList(){
   list.innerHTML=ids.map(id=>{const i=layerGroups[id];return`<div class="layer-item"><div class="layer-color" style="background:${i.color}"></div><span class="layer-name">${i.name}</span><span class="layer-count">${i.count}</span><div class="layer-toggle ${i.visible?'':'off'}" onclick="toggleLayer('${id}')"></div></div>`;}).join('');
 }
 function toggleLayer(id){const i=layerGroups[id];if(!i)return;i.visible=!i.visible;i.visible?map.addLayer(i.layer):map.removeLayer(i.layer);renderLayerList();}
-function fitToData(){if(allBounds)map.fitBounds(allBounds.pad(0.05));else showToast('Henüz dosya yüklenmedi');}
+function fitToData(){if(allBounds)map.fitBounds(allBounds);else showToast('Henüz dosya yüklenmedi');}
 
 function togglePanel(panelId,btnId){
   const panel=document.getElementById(panelId);const open=panel.style.display==='block';
@@ -872,7 +872,7 @@ function parseKML(text,name){
     if(polyEl){const pts=kmlPts(polyEl.textContent);if(pts.length){const pg=L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg);pg.bindPopup(pname||'Alan');pg.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Alan',pts,type:'poly'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Alan',ll:L.latLng(pts[0]),pts,type:'poly'});pts.forEach(p=>allVertices.push(L.latLng(p[0],p[1])));count++;}}
     if(ptEl){const p=ptEl.textContent.trim().split(/[\s,]+/);if(p.length>=2){const lat=parseFloat(p[1]),lng=parseFloat(p[0]);if(!isNaN(lat)&&!isNaN(lng)){L.circleMarker([lat,lng],{radius:5,color,fillColor:color,fillOpacity:0.9}).addTo(lg).bindPopup(pname||'Nokta');coords.push([lat,lng]);kmlObjects.push({name:pname||'Nokta',ll:L.latLng(lat,lng),pts:[[lat,lng]],type:'point'});count++;}}}
   });
-  if(coords.length){allBounds=L.latLngBounds(coords);map.fitBounds(allBounds.pad(0.05));addLayer(name,lg,color,count+' obj');showToast(count+' obje yüklendi');}
+  if(coords.length){const b=L.latLngBounds(coords);allBounds=b;map.fitBounds(b,{padding:[20,20],maxZoom:20});addLayer(name,lg,color,count+' obj',b);showToast(count+' obje yüklendi');}
   else showToast(t('kmlEmpty'));
 }
 function kmlPts(text){return text.trim().split(/\s+/).map(c=>{const p=c.split(',');if(p.length>=2){const lng=parseFloat(p[0]),lat=parseFloat(p[1]);if(!isNaN(lat)&&!isNaN(lng))return[lat,lng];}return null;}).filter(Boolean);}
@@ -935,7 +935,7 @@ function parseDXFWithProj(text,name,offset){
     }
     i++;
   }
-  if(coords.length){allBounds=L.latLngBounds(coords);map.fitBounds(allBounds.pad(0.05));addLayer(name,lg,color,count+' obj');showToast(count+' obje yüklendi');}
+  if(coords.length){const b=L.latLngBounds(coords);allBounds=b;map.fitBounds(b,{padding:[20,20],maxZoom:20});addLayer(name,lg,color,count+' obj',b);showToast(count+' obje yüklendi');}
   else showToast('Geometri bulunamadı — koordinat sistemi doğru mu?');
 }
 
