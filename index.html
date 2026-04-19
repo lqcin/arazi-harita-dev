@@ -1077,9 +1077,9 @@ function parseDXFWithProj(text,name,offset){
             else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_geo.push({t:'CR',c,lat,lng,r:radius});_coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));}}
             else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){_geo.push({t:'SP',c,pts});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);}}
             else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){let lbl=(te+tc).trim()
-                .replace(/\\P/gi,'\n')
+                .replace(/\\p[qlirx][^;]*;/gi,'')  // \pxql; \pqi; paragraph indent/align direktifleri
+                .replace(/\\P/g,'\n')              // \P büyük = paragraf sonu (satır başı)
                 .replace(/\\n/gi,'\n')
-                .replace(/\\p[^;]*;/gi,'')        // \pxql; \pi2; paragraph direktifleri
                 .replace(/\\~/g,' ')
                 .replace(/\\U\+[0-9A-Fa-f]{4}/g,'')
                 .replace(/\{[^}]*\}/g,'')          // {....} tüm blokları sil
