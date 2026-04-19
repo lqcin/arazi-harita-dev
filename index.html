@@ -10,6 +10,8 @@
 <title>Field Map — Dev</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1196,7 +1198,7 @@ function parseDXFWithProj(text,name,offset){
                 const rot=textRotation?`rotate(${-textRotation}deg)`:'';
                 const txtMarker=L.marker([lat,lng],{
                   icon:L.divIcon({
-                    html:`<div style="color:${color};font-size:11px;font-weight:500;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${label.replace(/\n/g,'<br>')}</div>`,
+                    html:`<div style="color:${color};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${label.replace(/\n/g,'<br>')}</div>`,
                     className:'',
                     iconAnchor:[0,6]
                   }),
