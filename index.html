@@ -10,8 +10,6 @@
 <title>Field Map — Dev</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -147,53 +145,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     </div>
   </div>
 </div>
-<!-- DXF Katman Seçici Modal -->
-<div id="dxf-layer-modal" style="position:absolute;inset:0;z-index:530;background:rgba(0,0,0,0.85);display:none;align-items:flex-start;justify-content:center;padding:12px;overflow-y:auto;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:420px;margin-top:30px;display:flex;flex-direction:column;max-height:calc(100vh - 60px);">
-    <!-- Header -->
-    <div style="padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:2px;">Katman Seçici</div>
-      <div id="dxf-layer-filename" style="font-size:11px;color:var(--text2);"></div>
-      <!-- İstatistik -->
-      <div id="dxf-layer-stats" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;"></div>
-    </div>
-    <!-- Akıllı filtre butonları -->
-    <div style="padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <div style="font-size:10px;color:var(--text2);font-weight:600;letter-spacing:0.5px;margin-bottom:6px;">HIZLI FİLTRE</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button onclick="dxfLayerFilter('all')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--accent);background:transparent;color:var(--accent);">✓ Tümü</button>
-        <button onclick="dxfLayerFilter('none')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);">✗ Hiçbiri</button>
-        <button onclick="dxfLayerFilter('smart')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--accent2);background:rgba(0,212,170,0.1);color:var(--accent2);">⚡ Akıllı Seçim</button>
-        <button onclick="dxfLayerFilter('nogeo')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);">🚫 Geo Hariç</button>
-      </div>
-    </div>
-    <!-- Arama -->
-    <div style="padding:8px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <input id="dxf-layer-search" type="text" placeholder="Katman ara..." oninput="filterDxfLayerList(this.value)"
-        style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--text);outline:none;">
-    </div>
-    <!-- Katman listesi -->
-    <div id="dxf-layer-list" style="overflow-y:auto;flex:1;padding:6px 0;"></div>
-    <!-- Footer -->
-    <div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:8px;align-items:center;">
-      <div id="dxf-layer-selected-count" style="font-size:12px;color:var(--text2);flex:1;"></div>
-      <button onclick="closeDxfLayerModal()" style="padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:var(--surface2);color:var(--text2);">İptal</button>
-      <button onclick="confirmDxfLayers()" style="padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:var(--accent);color:#fff;">Yükle</button>
-    </div>
-  </div>
-</div>
-<!-- DXF Parse Progress -->
-<div id="dxf-progress" style="position:absolute;bottom:90px;left:50%;transform:translateX(-50%);z-index:300;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:none;flex-direction:column;gap:8px;min-width:260px;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,0.4);">
+<div id="dxf-progress" style="position:absolute;bottom:90px;left:50%;transform:translateX(-50%);z-index:300;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:none;flex-direction:column;gap:8px;min-width:260px;box-shadow:0 4px 20px rgba(0,0,0,0.4);">
   <div style="display:flex;align-items:center;justify-content:space-between;">
-    <div style="display:flex;align-items:center;gap:8px;">
-      <div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>
-      <span style="font-size:13px;font-weight:600;color:var(--text);">DXF Yükleniyor</span>
-    </div>
-    <span onclick="cancelDXFLoad()" style="color:var(--danger);cursor:pointer;font-size:18px;line-height:1;">×</span>
+    <div style="display:flex;align-items:center;gap:8px;"><div class="spinner" style="width:14px;height:14px;border-width:2px;flex-shrink:0;"></div><span style="font-size:13px;font-weight:600;">DXF Yükleniyor</span></div>
+    <span onclick="cancelDXFLoad()" style="color:var(--danger);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;">×</span>
   </div>
-  <div style="width:100%;background:rgba(255,255,255,0.08);border-radius:10px;height:4px;overflow:hidden;">
-    <div id="dxf-progress-bar" style="height:100%;background:var(--accent);border-radius:10px;width:0%;transition:width 0.15s;"></div>
-  </div>
+  <div style="width:100%;background:rgba(255,255,255,0.08);border-radius:4px;height:4px;overflow:hidden;"><div id="dxf-progress-bar" style="height:100%;background:var(--accent);width:0%;transition:width 0.15s;border-radius:4px;"></div></div>
   <div id="dxf-progress-text" style="font-size:11px;color:var(--text2);">Hazırlanıyor...</div>
 </div>
 <div id="loading"><div style="font-size:44px">🗺️</div><div style="font-size:18px;font-weight:700">Field Map</div><div style="font-size:11px;color:#ff9f43;margin-top:-8px;letter-spacing:3px;">DEV</div><div class="spinner"></div></div>
@@ -446,9 +403,10 @@ let recording=false,recTrack=[],recPolyline=null,recStart=null,recTimer=null;
 let waypoints=[],pendingWP=null,pendingPhoto=null;
 let colorIdx=0,compassActive=false,compassWatcher=null;
 let kmlObjects=[];
-let allVertices=[]; // tüm köşe noktaları snap için
-let allSnapSegments=[]; // tüm çizgi segmentleri — segment snap için
+let allVertices=[]; // tüm KML köşe noktaları snap için
+let allSnapSegments=[]; // segment snap için
 let snapMarker=null; // snap önizleme marker
+let _canvasRenderer=null; // global canvas renderer
 const COLORS=['#4a9eff','#00d4aa','#ff9f43','#ff6b6b','#a29bfe','#fd79a8','#55efc4','#74b9ff'];
 
 const PROJECTIONS={
@@ -486,25 +444,19 @@ let selectedProj='turef_tm30',pendingDXFText=null,pendingDXFName=null;
 window.addEventListener('load',()=>{initMap();setTimeout(()=>document.getElementById('loading').style.display='none',700);});
 
 function initMap(){
-  // Canvas renderer — SVG yerine canvas, 750k+ obje için şart
-  const _canvasRenderer = L.canvas({padding:0.5, tolerance:5});
-
+  _canvasRenderer = L.canvas({padding:0.5, tolerance:5});
   map=L.map('map',{zoomControl:false,attributionControl:false,preferCanvas:true,renderer:_canvasRenderer});
-  baseLayers.osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:22});
+  baseLayers.osm=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:22,attribution:'© CartoDB'});
   baseLayers.sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
-  baseLayers.topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17});
+  baseLayers.topo=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:20,attribution:'© CartoDB'});
   baseLayers.dark=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:20});
   baseLayers.osm.addTo(map);
   map.setView([39.0,35.0],6);
   map.on('click',e=>{closeMore();onMapClick(e);});
-
-  // Mousemove throttle — her frame'de değil 50ms'de bir snap hesapla
-  let _lastMouseMove=0;
+  let _lastMM=0;
   map.on('mousemove',e=>{
     document.getElementById('coord-display').textContent=e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5);
-    const now=Date.now();
-    if(now-_lastMouseMove<50)return; // 50ms throttle
-    _lastMouseMove=now;
+    const now=Date.now();if(now-_lastMM<50)return;_lastMM=now;
     showSnapPreview(e.latlng);
   });
   // Long press kaldırıldı — donmaya neden oluyordu
@@ -751,168 +703,40 @@ function setDistMode(m){
   document.getElementById('dmode-area').classList.toggle('active',m==='area');
   document.getElementById('dist-hint').textContent=m==='line'?'Haritada iki noktaya dokun':'En az 3 noktaya dokun, son noktaya çift dokun';
 }
-// ── Quadtree Spatial Index ────────────────────────────────
-// Basit grid tabanlı spatial index — tam quadtree yerine daha hızlı implement
-class SpatialGrid {
-  constructor(cellSize=0.005) {
-    this.cells = {};
-    this.cellSize = cellSize;
-    this.count = 0;
-  }
-  _key(lat,lng) {
-    return `${Math.floor(lat/this.cellSize)}_${Math.floor(lng/this.cellSize)}`;
-  }
-  add(latlng) {
-    const k = this._key(latlng.lat, latlng.lng);
-    if(!this.cells[k]) this.cells[k] = [];
-    this.cells[k].push(latlng);
-    this.count++;
-  }
-  clear() { this.cells = {}; this.count = 0; }
-  // Verilen noktanın etrafındaki hücreleri tara
-  nearest(latlng, maxDist) {
-    const steps = Math.ceil(maxDist / (this.cellSize * 111320)) + 1;
-    const cx = Math.floor(latlng.lat / this.cellSize);
-    const cy = Math.floor(latlng.lng / this.cellSize);
-    let best = null, bestD = maxDist;
-    for(let dx=-steps; dx<=steps; dx++) {
-      for(let dy=-steps; dy<=steps; dy++) {
-        const k = `${cx+dx}_${cy+dy}`;
-        const cell = this.cells[k];
-        if(!cell) continue;
-        for(const v of cell) {
-          const d = latlng.distanceTo(v);
-          if(d < bestD) { bestD = d; best = v; }
-        }
-      }
-    }
-    return best ? {ll: best, dist: bestD} : null;
-  }
-}
-
-const _vertexGrid = new SpatialGrid(0.002);
-
-// allVertices.push override — grid'e de ekle
-const _origAllVerticesPush = Array.prototype.push;
-// allVertices için proxy kullan
-function _addVertex(latlng) {
-  allVertices.push(latlng);
-  _vertexGrid.add(latlng);
-}
-
-// ── Snap motoru (Quadtree destekli) ───────────────────────
-function _snapActive() {
-  return distModeActive || pinMode;
-}
-
-function _closestPointOnSegment(p, a, b) {
-  const dx = b[0]-a[0], dy = b[1]-a[1];
-  if(dx===0&&dy===0) return a;
-  const t = Math.max(0, Math.min(1, ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy)));
-  return [a[0]+t*dx, a[1]+t*dy];
-}
-
-function findSnapPoint(latlng) {
-  if(!allVertices.length&&!allSnapSegments.length) return null;
-  const zoom = map.getZoom();
-  const snapMeters = snapRadius * 40075016 * Math.cos(latlng.lat*Math.PI/180) / (256*Math.pow(2,zoom));
-  const p = [latlng.lat, latlng.lng];
-
-  // 1) Köşe snap — grid ile hızlı ara
-  const vResult = _vertexGrid.count > 0
-    ? _vertexGrid.nearest(latlng, snapMeters)
-    : null;
-  if(vResult) return {ll: vResult.ll, type:'vertex'};
-
-  // Fallback: grid boşsa lineer tara
-  if(_vertexGrid.count === 0 && allVertices.length) {
-    let best=null, bestD=snapMeters;
-    for(const v of allVertices){const d=latlng.distanceTo(v);if(d<bestD){bestD=d;best=v;}}
-    if(best) return {ll:best, type:'vertex'};
-  }
-
-  // 2) Midpoint + segment snap — sadece yakın bbox'ta olanları tara
-  const latTol = snapMeters / 111320;
-  const lngTol = snapMeters / (111320 * Math.cos(latlng.lat*Math.PI/180));
-  const nearSegs = allSnapSegments.filter(seg => {
-    const minLat=Math.min(seg[0][0],seg[1][0])-latTol;
-    const maxLat=Math.max(seg[0][0],seg[1][0])+latTol;
-    const minLng=Math.min(seg[0][1],seg[1][1])-lngTol;
-    const maxLng=Math.max(seg[0][1],seg[1][1])+lngTol;
-    return p[0]>=minLat&&p[0]<=maxLat&&p[1]>=minLng&&p[1]<=maxLng;
-  });
-
-  let bestMid=null, bestMDist=snapMeters;
-  for(const seg of nearSegs){
-    const mid=[(seg[0][0]+seg[1][0])/2,(seg[0][1]+seg[1][1])/2];
-    const midLl=L.latLng(mid[0],mid[1]);
-    const d=latlng.distanceTo(midLl);
-    if(d<bestMDist){bestMDist=d;bestMid=midLl;}
-  }
-  if(bestMid) return {ll:bestMid, type:'midpoint'};
-
-  // 3) Segment snap
-  let bestSeg=null, bestSDist=snapMeters*0.6;
-  for(const seg of nearSegs){
-    const closest=_closestPointOnSegment(p,seg[0],seg[1]);
-    const closestLl=L.latLng(closest[0],closest[1]);
-    const d=latlng.distanceTo(closestLl);
-    if(d<bestSDist){bestSDist=d;bestSeg=closestLl;}
-  }
-  if(bestSeg) return {ll:bestSeg, type:'segment'};
-
-  return null;
-}
-
+// ── Snap to vertex ───────────────────────────────────────
 function findSnapVertex(latlng) {
-  const r=findSnapPoint(latlng);
-  return r?r.ll:null;
+  if(!allVertices.length) return null;
+  // Zoom'a göre snap mesafesi: ekranda ~25px karşılığı metre
+  const zoom = map.getZoom();
+  const snapMeters = 25 * 40075016 * Math.cos(latlng.lat * Math.PI/180) / (256 * Math.pow(2, zoom));
+  let closest = null, minDist = snapMeters;
+  for(let v of allVertices) {
+    const d = latlng.distanceTo(v);
+    if(d < minDist) { minDist = d; closest = v; }
+  }
+  return closest;
 }
-
-// Snap tiplerine göre renk ve ikon
-const SNAP_STYLE = {
-  vertex:  {color:'#00d4aa', fill:'#00d4aa', radius:10, label:'⬡'},
-  midpoint:{color:'#ff9f43', fill:'#ff9f43', radius:8,  label:'◆'},
-  segment: {color:'#a29bfe', fill:'#a29bfe', radius:7,  label:'✕'},
-};
-
-let snapLabelMarker=null;
 
 function showSnapPreview(latlng) {
-  if(!_snapActive()) { removeSnapPreview(); return; }
-  const snap = findSnapPoint(latlng);
+  if(!distModeActive) { removeSnapPreview(); return; }
+  const snap = findSnapVertex(latlng);
   if(snap) {
-    const s = SNAP_STYLE[snap.type]||SNAP_STYLE.vertex;
     if(!snapMarker) {
-      snapMarker = L.circleMarker(snap.ll, {
-        radius:s.radius, color:s.color, fillColor:s.fill,
-        fillOpacity:0.35, weight:2.5, className:''
+      snapMarker = L.circleMarker(snap, {
+        radius: 10, color: '#00d4aa', fillColor: '#00d4aa',
+        fillOpacity: 0.3, weight: 2.5, className: ''
       }).addTo(map);
     } else {
-      snapMarker.setLatLng(snap.ll);
-      snapMarker.setStyle({color:s.color,fillColor:s.fill,radius:s.radius});
+      snapMarker.setLatLng(snap);
     }
-    // Snap tipi etiketi
-    if(!snapLabelMarker){
-      snapLabelMarker=L.marker(snap.ll,{
-        icon:L.divIcon({
-          html:`<div id="snap-type-badge" style="background:${s.color};color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;pointer-events:none;">${snap.type==='vertex'?'KÖŞE':snap.type==='midpoint'?'ORTA':'SEGMENT'}</div>`,
-          className:'',iconAnchor:[-12,-4]
-        }),interactive:false,zIndexOffset:1000
-      }).addTo(map);
-    } else {
-      snapLabelMarker.setLatLng(snap.ll);
-      const badge=snapLabelMarker.getElement()?.querySelector('#snap-type-badge');
-      if(badge){badge.style.background=s.color;badge.textContent=snap.type==='vertex'?'KÖŞE':snap.type==='midpoint'?'ORTA':'SEGMENT';}
-    }
+    snapMarker.setStyle({opacity:1, fillOpacity:0.3});
   } else {
     removeSnapPreview();
   }
 }
 
 function removeSnapPreview() {
-  if(snapMarker){map.removeLayer(snapMarker);snapMarker=null;}
-  if(snapLabelMarker){map.removeLayer(snapLabelMarker);snapLabelMarker=null;}
+  if(snapMarker) { map.removeLayer(snapMarker); snapMarker = null; }
 }
 
 function onMapClick(e){
@@ -924,15 +748,14 @@ function onMapClick(e){
   }
   if(!distModeActive)return;
   // Snap kontrolü
-  const snapResult = findSnapPoint(e.latlng);
-  const usePt = snapResult ? snapResult.ll : e.latlng;
-  const isSnapped = !!snapResult;
+  const snapPt = findSnapVertex(e.latlng);
+  const usePt = snapPt || e.latlng;
+  const isSnapped = !!snapPt;
   distPoints.push(usePt);
-  const markerColor = isSnapped ? (snapResult.type==='vertex'?'#00d4aa':snapResult.type==='midpoint'?'#ff9f43':'#a29bfe') : '#ff9f43';
+  const markerColor = isSnapped ? '#00d4aa' : '#ff9f43';
   const m = L.circleMarker(usePt,{radius:6,color:'#fff',fillColor:markerColor,fillOpacity:1,weight:2}).addTo(map);
   if(isSnapped) {
-    const tipText = snapResult.type==='vertex'?'⬡ Köşeye snap':snapResult.type==='midpoint'?'◆ Orta noktaya snap':'✕ Segmente snap';
-    m.bindTooltip(tipText, {permanent:false, direction:'top', className:''}).openTooltip();
+    m.bindTooltip('📐 Köşeye snap', {permanent:false, direction:'top', className:''}).openTooltip();
     setTimeout(()=>m.closeTooltip(), 1500);
   }
   distMarkers.push(m);
@@ -1086,25 +909,8 @@ function handleFile(file){
   const r=new FileReader();
   if(name.endsWith('.kml')){r.onload=e=>parseKML(e.target.result,file.name);r.readAsText(file);}
   else if(name.endsWith('.kmz')){r.onload=e=>parseKMZ(e.target.result,file.name);r.readAsArrayBuffer(file);}
-  else if(name.endsWith('.dxf')){
-    // ArrayBuffer olarak oku — encoding'i kendimiz belirleyelim
-    r.onload=e=>{
-      const buf=e.target.result;
-      // Önce UTF-8 dene, başarısız olursa Windows-1252 (GStarCAD default)
-      let text;
-      try {
-        text=new TextDecoder('utf-8',{fatal:true}).decode(buf);
-      } catch(err) {
-        try { text=new TextDecoder('windows-1252').decode(buf); }
-        catch(err2) { text=new TextDecoder('iso-8859-1').decode(buf); }
-      }
-      // \r\n → \n, \r → \n normalize et
-      text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-      openDxfRefModal(text,file.name);
-    };
-    r.readAsArrayBuffer(file);
-  }
-  else if(name.endsWith('.dwg'))showToast('DWG: GStarCAD\'den DXF export edin');
+  else if(name.endsWith('.dxf')){r.onload=e=>openDxfRefModal(e.target.result,file.name);r.readAsText(file);}
+  else if(name.endsWith('.dwg'))showToast('DWG: Civil 3D\'den DXF veya KMZ export edin');
   else showToast('Desteklenmeyen format');
 }
 function autoLoadFile(filename){
@@ -1125,10 +931,8 @@ function parseKML(text,name){
     const lineEl=pm.querySelector('LineString coordinates');
     const polyEl=pm.querySelector('Polygon outerBoundaryIs LinearRing coordinates');
     const ptEl=pm.querySelector('Point coordinates');
-    if(lineEl){const pts=kmlPts(lineEl.textContent);if(pts.length){const pl=L.polyline(pts,{color,weight:2}).addTo(lg);pl.bindPopup(pname||'Çizgi');pl.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Çizgi',pts,type:'line'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Çizgi',ll:L.latLng(pts[0]),pts,type:'line'});pts.forEach(p=>
-_addVertex(L.latLng(p[0],p[1])));for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
-    if(polyEl){const pts=kmlPts(polyEl.textContent);if(pts.length){const pg=L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg);pg.bindPopup(pname||'Alan');pg.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Alan',pts,type:'poly'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Alan',ll:L.latLng(pts[0]),pts,type:'poly'});pts.forEach(p=>
-_addVertex(L.latLng(p[0],p[1])));for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
+    if(lineEl){const pts=kmlPts(lineEl.textContent);if(pts.length){const pl=L.polyline(pts,{color,weight:2}).addTo(lg);pl.bindPopup(pname||'Çizgi');pl.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Çizgi',pts,type:'line'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Çizgi',ll:L.latLng(pts[0]),pts,type:'line'});pts.forEach(p=>allVertices.push(L.latLng(p[0],p[1])));count++;}}
+    if(polyEl){const pts=kmlPts(polyEl.textContent);if(pts.length){const pg=L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg);pg.bindPopup(pname||'Alan');pg.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Alan',pts,type:'poly'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Alan',ll:L.latLng(pts[0]),pts,type:'poly'});pts.forEach(p=>allVertices.push(L.latLng(p[0],p[1])));count++;}}
     if(ptEl){const p=ptEl.textContent.trim().split(/[\s,]+/);if(p.length>=2){const lat=parseFloat(p[1]),lng=parseFloat(p[0]);if(!isNaN(lat)&&!isNaN(lng)){L.circleMarker([lat,lng],{radius:5,color,fillColor:color,fillOpacity:0.9}).addTo(lg).bindPopup(pname||'Nokta');coords.push([lat,lng]);kmlObjects.push({name:pname||'Nokta',ll:L.latLng(lat,lng),pts:[[lat,lng]],type:'point'});count++;}}}
   });
   if(coords.length){
@@ -1151,6 +955,30 @@ async function parseKMZ(buffer,name){
 }
 
 // ── Projeksiyon ───────────────────────────────────────────
+// ── ACI renk tablosu + katman rengi ──────────────────────
+const ACI_COLORS=['#000000','#FF0000','#FFFF00','#00FF00','#00FFFF','#0000FF','#FF00FF','#FFFFFF','#414141','#808080','#FF0000','#FFAAAA','#BD0000','#BD7E7E','#810000','#815656','#680000','#684545','#4F0000','#4F3535','#FF3F00','#FFBFAA','#BD2E00','#BD8D7E','#811F00','#816056','#681900','#684E45','#4F1300','#4F3B35','#FF7F00','#FFD4AA','#BD5E00','#BD9D7E','#814000','#816B56','#683400','#685645','#4F2700','#4F4235','#FFBF00','#FFEAAA','#BD8D00','#BDAD7E','#816000','#817656','#684E00','#685F45','#4F3B00','#4F4935','#FFFF00','#FFFFAA','#BDBD00','#BDBD7E','#818100','#818156','#686800','#686845','#4F4F00','#4F4F35','#BFFF00','#EAFFAA','#8DBD00','#ADBD7E','#608100','#768156','#4E6800','#5F6845','#3B4F00','#494F35','#7FFF00','#D4FFAA','#5EBD00','#9DBD7E','#408100','#6B8156','#346800','#566845','#274F00','#424F35','#3FFF00','#BFFFAA','#2EBD00','#8DBD7E','#1F8100','#608156','#196800','#4E6845','#134F00','#3B4F35','#00FF00','#AAFFAA','#00BD00','#7EBD7E','#008100','#568156','#006800','#456845','#004F00','#354F35','#00FF3F','#AAFFBF','#00BD2E','#7EBD8D','#00811F','#568160','#006819','#45684E','#004F13','#354F3B','#00FF7F','#AAFFD4','#00BD5E','#7EBD9D','#008140','#56816B','#006834','#456856','#004F27','#354F42','#00FFBF','#AAFFEA','#00BD8D','#7EBDAD','#008160','#568176','#00684E','#45685F','#004F3B','#354F49','#00FFFF','#AAFFFF','#00BDBD','#7EBDBD','#008181','#568181','#006868','#456868','#004F4F','#354F4F','#00BFFF','#AAEAFF','#008DBD','#7EADBD','#006081','#567681','#004E68','#455F68','#003B4F','#35494F','#007FFF','#AAD4FF','#005EBD','#7E9DBD','#004081','#566B81','#003468','#455668','#00274F','#35424F','#003FFF','#AABFFF','#002EBD','#7E8DBD','#001F81','#566081','#001968','#454E68','#00134F','#353B4F','#0000FF','#AAAAFF','#0000BD','#7E7EBD','#000081','#565681','#000068','#454568','#00004F','#35354F','#3F00FF','#BFAAFF','#2E00BD','#8D7EBD','#1F0081','#605681','#190068','#4E4568','#13004F','#3B354F','#7F00FF','#D4AAFF','#5E00BD','#9D7EBD','#400081','#6B5681','#340068','#564568','#27004F','#42354F','#BF00FF','#EAAAFF','#8D00BD','#AD7EBD','#600081','#765681','#4E0068','#5F4568','#3B004F','#49354F','#FF00FF','#FFAAFF','#BD00BD','#BD7EBD','#810081','#815681','#680068','#684568','#4F004F','#4F354F','#FF00BF','#FFAAEA','#BD008D','#BD7EAD','#810060','#815676','#68004E','#68455F','#4F003B','#4F3549','#FF007F','#FFAAD4','#BD005E','#BD7E9D','#810040','#81566B','#680034','#684556','#4F0027','#4F3542','#FF003F','#FFAABF','#BD002E','#BD7E8D','#81001F','#815660','#680019','#68454E','#4F0013','#4F353B','#333333','#505050','#696969','#828282','#BEBEBE','#FFFFFF'];
+function aciToHex(aci){const idx=Math.abs(parseInt(aci)||0);return(idx>=0&&idx<ACI_COLORS.length)?ACI_COLORS[idx]:null;}
+function parseDXFLayerColors(lines){
+  const lc={};let inTables=false,i=0;
+  while(i<lines.length-1){
+    if(lines[i]==='2'&&lines[i+1]==='TABLES')inTables=true;
+    if(lines[i]==='0'&&lines[i+1]==='ENDSEC')inTables=false;
+    if(!inTables){i++;continue;}
+    if(lines[i]==='0'&&lines[i+1]==='LAYER'){
+      let lname='',lcolor=null,j=i+2;
+      while(j<Math.min(i+60,lines.length-1)){
+        const code=parseInt(lines[j]),raw=(lines[j+1]||'').trim();
+        if(code===0&&j>i+2)break;
+        if(code===2)lname=raw;else if(code===62)lcolor=Math.abs(parseInt(raw));
+        j+=2;
+      }
+      if(lname)lc[lname]=lcolor;
+    }
+    i++;
+  }
+  return lc;
+}
+
 function tmToLatLng(E,N,proj){
   const{lon0,fe,fn,k,a,f}=proj;const b=a*(1-f),e2=1-(b*b)/(a*a);
   const e1=(1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
@@ -1180,343 +1008,9 @@ function renderProjList(){
 function selectProj(k){selectedProj=k;renderProjList();}
 function openProjModal(dxfText,dxfName){pendingDXFText=dxfText;pendingDXFName=dxfName;renderProjList();document.getElementById('proj-modal').style.display='flex';}
 function closeProjModal(){document.getElementById('proj-modal').style.display='none';}
-function applyProj(){closeProjModal();if(pendingDXFText)openDxfLayerModal(pendingDXFText,pendingDXFName,{});pendingDXFText=null;}
-
-// ── DXF ACI renk tablosu (256 renk) ──────────────────────
-const ACI_COLORS=[
-  '#000000','#FF0000','#FFFF00','#00FF00','#00FFFF','#0000FF','#FF00FF','#FFFFFF',
-  '#414141','#808080','#FF0000','#FFAAAA','#BD0000','#BD7E7E','#810000','#815656',
-  '#680000','#684545','#4F0000','#4F3535','#FF3F00','#FFBFAA','#BD2E00','#BD8D7E',
-  '#811F00','#816056','#681900','#684E45','#4F1300','#4F3B35','#FF7F00','#FFD4AA',
-  '#BD5E00','#BD9D7E','#814000','#816B56','#683400','#685645','#4F2700','#4F4235',
-  '#FFBF00','#FFEAAA','#BD8D00','#BDAD7E','#816000','#817656','#684E00','#685F45',
-  '#4F3B00','#4F4935','#FFFF00','#FFFFAA','#BDBD00','#BDBD7E','#818100','#818156',
-  '#686800','#686845','#4F4F00','#4F4F35','#BFFF00','#EAFFAA','#8DBD00','#ADBD7E',
-  '#608100','#768156','#4E6800','#5F6845','#3B4F00','#494F35','#7FFF00','#D4FFAA',
-  '#5EBD00','#9DBD7E','#408100','#6B8156','#346800','#566845','#274F00','#424F35',
-  '#3FFF00','#BFFFAA','#2EBD00','#8DBD7E','#1F8100','#608156','#196800','#4E6845',
-  '#134F00','#3B4F35','#00FF00','#AAFFAA','#00BD00','#7EBD7E','#008100','#568156',
-  '#006800','#456845','#004F00','#354F35','#00FF3F','#AAFFBF','#00BD2E','#7EBD8D',
-  '#00811F','#568160','#006819','#45684E','#004F13','#354F3B','#00FF7F','#AAFFD4',
-  '#00BD5E','#7EBD9D','#008140','#56816B','#006834','#456856','#004F27','#354F42',
-  '#00FFBF','#AAFFEA','#00BD8D','#7EBDAD','#008160','#568176','#00684E','#45685F',
-  '#004F3B','#354F49','#00FFFF','#AAFFFF','#00BDBD','#7EBDBD','#008181','#568181',
-  '#006868','#456868','#004F4F','#354F4F','#00BFFF','#AAEAFF','#008DBD','#7EADBD',
-  '#006081','#567681','#004E68','#455F68','#003B4F','#35494F','#007FFF','#AAD4FF',
-  '#005EBD','#7E9DBD','#004081','#566B81','#003468','#455668','#00274F','#35424F',
-  '#003FFF','#AABFFF','#002EBD','#7E8DBD','#001F81','#566081','#001968','#454E68',
-  '#00134F','#353B4F','#0000FF','#AAAAFF','#0000BD','#7E7EBD','#000081','#565681',
-  '#000068','#454568','#00004F','#35354F','#3F00FF','#BFAAFF','#2E00BD','#8D7EBD',
-  '#1F0081','#605681','#190068','#4E4568','#13004F','#3B354F','#7F00FF','#D4AAFF',
-  '#5E00BD','#9D7EBD','#400081','#6B5681','#340068','#564568','#27004F','#42354F',
-  '#BF00FF','#EAAAFF','#8D00BD','#AD7EBD','#600081','#765681','#4E0068','#5F4568',
-  '#3B004F','#49354F','#FF00FF','#FFAAFF','#BD00BD','#BD7EBD','#810081','#815681',
-  '#680068','#684568','#4F004F','#4F354F','#FF00BF','#FFAAEA','#BD008D','#BD7EAD',
-  '#810060','#815676','#68004E','#68455F','#4F003B','#4F3549','#FF007F','#FFAAD4',
-  '#BD005E','#BD7E9D','#810040','#81566B','#680034','#684556','#4F0027','#4F3542',
-  '#FF003F','#FFAABF','#BD002E','#BD7E8D','#81001F','#815660','#680019','#68454E',
-  '#4F0013','#4F353B','#333333','#505050','#696969','#828282','#BEBEBE','#FFFFFF'
-];
-function aciToHex(aci){
-  const idx=Math.abs(parseInt(aci)||0);
-  return(idx>=0&&idx<ACI_COLORS.length)?ACI_COLORS[idx]:null;
-}
-
-// ── DXF TABLES section'ından katman renklerini oku ───────
-function parseDXFLayerColors(lines){
-  const layerColors={};
-  let inTables=false;
-  let i=0;
-  while(i<lines.length-1){
-    if(lines[i]==='0'&&lines[i+1]==='SECTION'){}
-    if(lines[i]==='2'&&lines[i+1]==='TABLES'){inTables=true;}
-    if(lines[i]==='0'&&lines[i+1]==='ENDSEC'){inTables=false;}
-    if(!inTables){i++;continue;}
-    if(lines[i]==='0'&&lines[i+1]==='LAYER'){
-      let lname='',lcolor=null;let j=i+2;
-      while(j<Math.min(i+60,lines.length-1)){
-        const code=parseInt(lines[j]);const raw=(lines[j+1]||'').trim();
-        if(code===0&&j>i+2)break;
-        if(code===2)lname=raw;
-        else if(code===62)lcolor=Math.abs(parseInt(raw));
-        j+=2;
-      }
-      if(lname)layerColors[lname]=lcolor;
-    }
-    i++;
-  }
-  return layerColors;
-}
+function applyProj(){closeProjModal();if(pendingDXFText)parseDXFWithProj(pendingDXFText,pendingDXFName);pendingDXFText=null;}
 
 // ── DXF ───────────────────────────────────────────────────
-function parseDXFWithProj(text,name,offset){
-  const lines=text.replace(/\r/g,'').split('\n').map(l=>l.trim());const lg=L.layerGroup();const coords=[];let count=0;
-  const fallbackColor=COLORS[colorIdx++%COLORS.length];let i=0;
-
-  // Katman renklerini önceden oku
-  const layerColors=parseDXFLayerColors(lines);
-
-  // Renk çözümleme: entity ACI (62) > katman rengi > fallback
-  // ACI 0=BYBLOCK, 256=BYLAYER → her ikisi de katman rengine düşer
-  function resolveColor(entityACI,layerName){
-    if(entityACI!==null&&entityACI!==undefined&&entityACI!==0&&entityACI!==256){
-      const h=aciToHex(entityACI);if(h&&h!=='#000000')return h;
-      // ACI 7 = beyaz/siyah (kağıt rengine göre) → fallback
-      if(entityACI===7)return fallbackColor;
-      if(h)return h;
-    }
-    if(layerName&&layerColors[layerName]!=null){
-      const h=aciToHex(layerColors[layerName]);
-      if(h&&h!=='#000000')return h;
-      if(layerColors[layerName]===7)return fallbackColor;
-      if(h)return h;
-    }
-    return fallbackColor;
-  }
-
-  // Sadece ENTITIES section'ını parse et — BLOCKS section'ını atla
-  let inEntities=false, inBlocks=false;
-  while(i<lines.length-1){
-    // Section kontrolü
-    if(lines[i]==='2'&&lines[i+1]==='ENTITIES'){inEntities=true;inBlocks=false;}
-    if(lines[i]==='2'&&lines[i+1]==='BLOCKS'){inBlocks=true;inEntities=false;}
-    if(lines[i]==='0'&&lines[i+1]==='ENDSEC'){inEntities=false;inBlocks=false;}
-    if(!inEntities){i++;continue;}
-    if(lines[i]==='0'){
-      const etype=lines[i+1].trim();
-      if(['LINE','LWPOLYLINE','POLYLINE','POINT','CIRCLE','ARC','SPLINE','TEXT','MTEXT'].includes(etype)){
-        const x10=[],y20=[];let x11=NaN,y21=NaN,flags=0,radius=0;
-        let entityACI=null,layerName='',textContent='',textExtra='',textHeight=0,textRotation=0;
-        let j=i+2;
-        while(j<Math.min(i+500,lines.length-1)){
-          const code=parseInt(lines[j]);const raw=lines[j+1]||'';const val=parseFloat(raw);
-          if(code===0&&j>i+2)break;
-          if(code===10)x10.push(val);
-          else if(code===20)y20.push(val);
-          else if(code===11)x11=val;
-          else if(code===21)y21=val;
-          else if(code===70)flags=parseInt(raw);
-          else if(code===40){if(etype==='TEXT'||etype==='MTEXT')textHeight=val;else radius=val;}
-          else if(code===50)textRotation=val;
-          else if(code===1)textContent=raw.trim();   // ana içerik
-          else if(code===3)textExtra+=raw.trim();    // MTEXT uzun metin parçaları
-          else if(code===62)entityACI=parseInt(raw);
-          else if(code===8)layerName=raw.trim();
-          j+=2;
-        }
-        if(x10.length>0&&y20.length>0){
-          const color=resolveColor(entityACI,layerName);
-          const conv=(x,y)=>convertCoord(x,y,offset);
-          const valid=(lat,lng)=>!isNaN(lat)&&!isNaN(lng)&&lat>=-90&&lat<=90&&lng>=-180&&lng<=180&&!(lat===0&&lng===0);
-          if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9}).addTo(lg);coords.push([lat,lng]);
-_addVertex(L.latLng(lat,lng));count++;}}
-          else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){L.polyline([[la1,ln1],[la2,ln2]],{color,weight:1.5}).addTo(lg);coords.push([la1,ln1],[la2,ln2]);_addVertex(L.latLng(la1,ln1));_addVertex(L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);count++;}}
-          else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);
-_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
-          else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){const circ=L.circle([lat,lng],{radius,color,weight:1.5,fillOpacity:0.06}).addTo(lg);circ.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:'Daire',pts:[[lat,lng]],type:'circle',radius});});coords.push([lat,lng]);
-_addVertex(L.latLng(lat,lng));count++;}}
-          else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);
-_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
-          else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0&&y20.length>0){
-            const[lat,lng]=conv(x10[0],y20[0]);
-            if(valid(lat,lng)){
-              // MTEXT: kod 3 parçaları (uzun metin) + kod 1 birleştir
-              const raw=(textExtra+textContent).trim();
-              // MTEXT formatting temizle
-              let label=raw
-                .replace(/\\P/gi,'\n')        // paragraf sonu
-                .replace(/\\n/gi,'\n')
-                .replace(/\\~/g,' ')           // non-breaking space
-                .replace(/\{\\[^}]*\}/g,'')    // {\\fFont;...} font direktifleri
-                .replace(/\\[A-Za-z][^;]*;/g,'') // \H2x; \W1; vb.
-                .replace(/%%c/gi,'⌀')
-                .replace(/%%d/gi,'°')
-                .replace(/%%p/gi,'±')
-                .replace(/%%u/gi,'')           // underline toggle
-                .replace(/%%o/gi,'')           // overline toggle
-                .replace(/[{}]/g,'')
-                .trim();
-              if(!label) label=raw.replace(/[\\{}\|]/g,'').trim();
-              if(label){
-                // Sabit 11px — zoom'dan bağımsız, harita üzerinde okunabilir
-                const rot=textRotation?`rotate(${-textRotation}deg)`:'';
-                const txtMarker=L.marker([lat,lng],{
-                  icon:L.divIcon({
-                    html:`<div style="color:${color};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${label.replace(/\n/g,'<br>')}</div>`,
-                    className:'',
-                    iconAnchor:[0,6]
-                  }),
-                  interactive:false,
-                  zIndexOffset:-5
-                }).addTo(lg);
-                coords.push([lat,lng]);
-                count++;
-              }
-            }
-          }
-        }
-      }
-    }
-    i++;
-  }
-  if(coords.length){
-    const b=L.latLngBounds(coords);
-    allBounds=b;
-    // Tek nokta veya çok küçük alan — minimum zoom 15
-    const sw=b.getSouthWest(), ne=b.getNorthEast();
-    const isSmall = Math.abs(ne.lat-sw.lat)<0.001 && Math.abs(ne.lng-sw.lng)<0.001;
-    if(isSmall) map.setView(b.getCenter(),16);
-    else map.fitBounds(b,{padding:[30,30],maxZoom:19});
-    addLayer(name,lg,fallbackColor,count+' obj',b);
-    showToast(count+' obje yüklendi');
-  }
-  else showToast('Geometri bulunamadı — koordinat sistemi doğru mu?');
-}
-
-// ── DXF Katman Seçici ────────────────────────────────────
-let _dxfPendingText=null, _dxfPendingName=null, _dxfPendingOffset=null;
-let _dxfLayerData={}; // {layerName: {count, types, color}}
-let _dxfLayerSelected={}; // {layerName: bool}
-
-// Gizlenecek katman keyword'leri (akıllı filtre)
-const DXF_HIDE_KEYWORDS = ['defpoint','$','vport','viewport','dim','hatch','tarama','poche'];
-const DXF_SHOW_KEYWORDS = ['sınır','sinir','yol','bina','yapi','yapı','alan','imar','parsel','kadastro','kot','topo'];
-
-function scanDXFLayers(text) {
-  const lines = text.split('\n').map(l=>l.trim());
-  const layers = {};
-  // TABLES'dan katman renklerini al
-  const layerColors = parseDXFLayerColors(lines);
-
-  let inEntities=false, inBlocks=false;
-  for(let i=0; i<lines.length-1; i++) {
-    if(lines[i]==='2'&&lines[i+1]==='ENTITIES'){inEntities=true;inBlocks=false;}
-    if(lines[i]==='2'&&lines[i+1]==='BLOCKS'){inBlocks=true;inEntities=false;}
-    if(lines[i]==='0'&&lines[i+1]==='ENDSEC'){inEntities=false;inBlocks=false;}
-    if(!inEntities) continue;
-    if(lines[i]==='0') {
-      const etype=lines[i+1].trim();
-      if(['LINE','LWPOLYLINE','POLYLINE','POINT','CIRCLE','ARC','SPLINE','TEXT','MTEXT','INSERT','DIMENSION','HATCH'].includes(etype)) {
-        // Hızlı katman adı bul
-        let lname='0', j=i+2;
-        while(j<Math.min(i+30,lines.length-1)) {
-          if(parseInt(lines[j])===8){lname=lines[j+1].trim();break;}
-          j+=2;
-        }
-        if(!layers[lname]) layers[lname]={count:0,types:{},color:layerColors[lname]||null};
-        layers[lname].count++;
-        layers[lname].types[etype]=(layers[lname].types[etype]||0)+1;
-      }
-    }
-  }
-  return layers;
-}
-
-function openDxfLayerModal(text, name, offset) {
-  _dxfPendingText=text; _dxfPendingName=name; _dxfPendingOffset=offset;
-  _dxfLayerData = scanDXFLayers(text);
-  const layerNames = Object.keys(_dxfLayerData).sort((a,b)=>_dxfLayerData[b].count-_dxfLayerData[a].count);
-
-  // Başlangıç seçimleri: akıllı filtre uygula
-  _dxfLayerSelected = {};
-  layerNames.forEach(n => {
-    const low = n.toLowerCase();
-    const isHide = DXF_HIDE_KEYWORDS.some(k=>low.includes(k));
-    const types = _dxfLayerData[n].types;
-    const isGeoOnly = Object.keys(types).every(t=>['DIMENSION','HATCH'].includes(t));
-    _dxfLayerSelected[n] = !isHide && !isGeoOnly;
-  });
-
-  document.getElementById('dxf-layer-filename').textContent = name;
-  // İstatistik
-  const total = layerNames.reduce((s,n)=>s+_dxfLayerData[n].count,0);
-  document.getElementById('dxf-layer-stats').innerHTML =
-    `<span style="background:rgba(74,158,255,0.15);color:var(--accent);border-radius:6px;padding:2px 8px;font-size:10px;font-weight:600;">${layerNames.length} katman</span>` +
-    `<span style="background:rgba(0,212,170,0.15);color:var(--accent2);border-radius:6px;padding:2px 8px;font-size:10px;font-weight:600;">${total.toLocaleString()} obje</span>` +
-    `<span style="background:rgba(255,159,67,0.15);color:var(--warn);border-radius:6px;padding:2px 8px;font-size:10px;font-weight:600;">${(text.length/1024/1024).toFixed(1)} MB</span>`;
-
-  renderDxfLayerList('');
-  document.getElementById('dxf-layer-modal').style.display='flex';
-  document.getElementById('dxf-layer-search').value='';
-}
-
-function renderDxfLayerList(filter) {
-  const layerNames = Object.keys(_dxfLayerData)
-    .filter(n=>!filter||n.toLowerCase().includes(filter.toLowerCase()))
-    .sort((a,b)=>_dxfLayerData[b].count-_dxfLayerData[a].count);
-
-  const list = document.getElementById('dxf-layer-list');
-  list.innerHTML = layerNames.map(n => {
-    const d = _dxfLayerData[n];
-    const sel = _dxfLayerSelected[n];
-    const color = d.color ? aciToHex(d.color) : '#8892a4';
-    const typeStr = Object.entries(d.types).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([t,c])=>`${t}(${c})`).join(' ');
-    const warn = d.count>5000 ? '<span style="color:var(--warn);font-size:9px;margin-left:4px;">⚠️ Büyük</span>' : '';
-    return `<div onclick="toggleDxfLayer('${n.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;border-bottom:1px solid var(--border);background:${sel?'rgba(74,158,255,0.05)':'transparent'};">
-      <div style="width:10px;height:10px;border-radius:50%;background:${color||'#8892a4'};flex-shrink:0;border:1px solid rgba(255,255,255,0.2);"></div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;font-weight:600;color:${sel?'var(--text)':'var(--text2)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n}${warn}</div>
-        <div style="font-size:10px;color:var(--text2);">${typeStr}</div>
-      </div>
-      <div style="font-size:11px;color:var(--text2);flex-shrink:0;">${d.count}</div>
-      <div style="width:20px;height:20px;border-radius:4px;border:1.5px solid ${sel?'var(--accent)':'var(--border)'};background:${sel?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        ${sel?'<span style="color:#fff;font-size:12px;line-height:1;">✓</span>':''}
-      </div>
-    </div>`;
-  }).join('');
-  updateDxfLayerCount();
-}
-
-function toggleDxfLayer(name) {
-  _dxfLayerSelected[name] = !_dxfLayerSelected[name];
-  const filter = document.getElementById('dxf-layer-search').value;
-  renderDxfLayerList(filter);
-}
-
-function filterDxfLayerList(val) { renderDxfLayerList(val); }
-
-function dxfLayerFilter(mode) {
-  const names = Object.keys(_dxfLayerData);
-  names.forEach(n => {
-    const low = n.toLowerCase();
-    if(mode==='all') _dxfLayerSelected[n]=true;
-    else if(mode==='none') _dxfLayerSelected[n]=false;
-    else if(mode==='smart') {
-      const isHide = DXF_HIDE_KEYWORDS.some(k=>low.includes(k));
-      const isGeoOnly = Object.keys(_dxfLayerData[n].types).every(t=>['DIMENSION','HATCH'].includes(t));
-      _dxfLayerSelected[n] = !isHide && !isGeoOnly;
-    }
-    else if(mode==='nogeo') {
-      const types = _dxfLayerData[n].types;
-      _dxfLayerSelected[n] = !Object.keys(types).every(t=>['DIMENSION','HATCH'].includes(t));
-    }
-  });
-  renderDxfLayerList(document.getElementById('dxf-layer-search').value);
-}
-
-function updateDxfLayerCount() {
-  const sel = Object.values(_dxfLayerSelected).filter(Boolean).length;
-  const total = Object.keys(_dxfLayerSelected).length;
-  const objCount = Object.entries(_dxfLayerSelected)
-    .filter(([,v])=>v).reduce((s,[k])=>s+(_dxfLayerData[k]?.count||0),0);
-  document.getElementById('dxf-layer-selected-count').textContent =
-    `${sel}/${total} katman · ${objCount.toLocaleString()} obje`;
-}
-
-function closeDxfLayerModal() {
-  document.getElementById('dxf-layer-modal').style.display='none';
-  _dxfPendingText=null;
-}
-
-function confirmDxfLayers() {
-  const selectedLayers = new Set(Object.entries(_dxfLayerSelected).filter(([,v])=>v).map(([k])=>k));
-  if(!selectedLayers.size){showToast('En az 1 katman seçin');return;}
-  document.getElementById('dxf-layer-modal').style.display='none';
-  parseDXFChunked(_dxfPendingText, _dxfPendingName, _dxfPendingOffset, selectedLayers);
-  _dxfPendingText=null;
-}
-
-// ── DXF Chunk Parse (UI donmadan) ────────────────────────
 let _dxfCancelled=false;
 function cancelDXFLoad(){
   _dxfCancelled=true;
@@ -1524,204 +1018,142 @@ function cancelDXFLoad(){
   showToast('Yükleme iptal edildi');
 }
 
-function parseDXFChunked(text, name, offset, selectedLayers) {
+function parseDXFWithProj(text,name,offset){
   _dxfCancelled=false;
-  const prog = document.getElementById('dxf-progress');
-  const progBar = document.getElementById('dxf-progress-bar');
-  const progText = document.getElementById('dxf-progress-text');
-  prog.style.display='flex';
-  progBar.style.width='0%';
-  progText.textContent='Hazırlanıyor...';
+  const lines=text.replace(/\r/g,'').split('\n').map(l=>l.trim());
+  const color=COLORS[colorIdx++%COLORS.length];
+  const layerColors=parseDXFLayerColors?parseDXFLayerColors(lines):{};
 
-  const lines = text.replace(/\r/g,'').split('\n').map(l=>l.trim());
-  const layerColors = parseDXFLayerColors(lines);
-  const lg = L.layerGroup();      // ana geometri (line, poly, circle)
-  const lgText = L.layerGroup();  // text + point — zoom 15+ görünür
-  const coords = [];
-  const fallbackColor = COLORS[colorIdx++%COLORS.length];
-  let count = 0, i = 0;
-  let inEntities=false, inBlocks=false;
-  const totalLines = lines.length;
-
-  // Seçili katmanlar için renk çözümleme
-  function resolveColorL(entityACI, layerName) {
-    if(entityACI!==null&&entityACI!==undefined&&entityACI!==0&&entityACI!==256){
-      const h=aciToHex(entityACI);if(h&&h!=='#000000')return h;
-      if(entityACI===7)return fallbackColor;
-      if(h)return h;
-    }
-    if(layerName&&layerColors[layerName]!=null){
-      const h=aciToHex(layerColors[layerName]);
-      if(h&&h!=='#000000')return h;
-      if(layerColors[layerName]===7)return fallbackColor;
-      if(h)return h;
-    }
-    return fallbackColor;
+  // Renk çözümleme
+  function resolveC(aci,lname){
+    if(aci!=null&&aci!==0&&aci!==256){const h=aciToHex?aciToHex(aci):null;if(h&&h!=='#000000'&&aci!==7)return h;}
+    if(lname&&layerColors[lname]!=null){const h=aciToHex?aciToHex(layerColors[lname]):null;if(h&&h!=='#000000'&&layerColors[lname]!==7)return h;}
+    return color;
   }
 
   const valid=(lat,lng)=>!isNaN(lat)&&!isNaN(lng)&&lat>=-90&&lat<=90&&lng>=-180&&lng<=180&&!(lat===0&&lng===0);
   const conv=(x,y)=>convertCoord(x,y,offset);
 
-  // Parse aşamasında geometriyi ham veri olarak topla — Leaflet obje oluşturma YOK
-  const _collected = []; // {type, color, data}
-  const CHUNK = 8000;
+  // Aşama 1: Parse — ham veri topla
+  const _geo=[], _txt=[], _coords=[];
+  let i=0, inEntities=false, inBlocks=false;
+  const totalLines=lines.length;
 
-  function processChunk() {
-    const end = Math.min(i + CHUNK, lines.length - 1);
+  // Progress göster
+  const prog=document.getElementById('dxf-progress');
+  const progBar=document.getElementById('dxf-progress-bar');
+  const progText=document.getElementById('dxf-progress-text');
+  if(prog){prog.style.display='flex';progBar.style.width='0%';progText.textContent='Parse ediliyor...';}
 
-    while(i < end) {
+  const CHUNK=8000;
+  function parseChunk(){
+    const end=Math.min(i+CHUNK,totalLines-1);
+    while(i<end){
       if(lines[i]==='2'&&lines[i+1]==='ENTITIES'){inEntities=true;inBlocks=false;}
       if(lines[i]==='2'&&lines[i+1]==='BLOCKS'){inBlocks=true;inEntities=false;}
       if(lines[i]==='0'&&lines[i+1]==='ENDSEC'){inEntities=false;inBlocks=false;}
-
-      if(inEntities && lines[i]==='0') {
-        const etype = lines[i+1].trim();
-        if(['LINE','LWPOLYLINE','POLYLINE','POINT','CIRCLE','ARC','SPLINE','TEXT','MTEXT'].includes(etype)) {
-          const x10=[],y20=[];let x11=NaN,y21=NaN,flags=0,radius=0;
-          let entityACI=null,layerName='',textContent='',textExtra='',textRotation=0;
+      if(inEntities&&lines[i]==='0'){
+        const etype=lines[i+1].trim();
+        if(['LINE','LWPOLYLINE','POLYLINE','POINT','CIRCLE','ARC','SPLINE','TEXT','MTEXT'].includes(etype)){
+          const x10=[],y20=[];let x11=NaN,y21=NaN,flags=0,radius=0,aci=null,lname='',tc='',te='',rot=0;
           let j=i+2;
-          while(j<Math.min(i+500,lines.length-1)){
+          while(j<Math.min(i+500,totalLines-1)){
             const code=parseInt(lines[j]);const raw=lines[j+1]||'';const val=parseFloat(raw);
             if(code===0&&j>i+2)break;
-            if(code===10)x10.push(val);
-            else if(code===20)y20.push(val);
-            else if(code===11)x11=val;
-            else if(code===21)y21=val;
+            if(code===10)x10.push(val);else if(code===20)y20.push(val);
+            else if(code===11)x11=val;else if(code===21)y21=val;
             else if(code===70)flags=parseInt(raw);
-            else if(code===40){if(etype==='TEXT'||etype==='MTEXT');else radius=val;}
-            else if(code===50)textRotation=val;
-            else if(code===1)textContent=raw.trim();
-            else if(code===3)textExtra+=raw.trim();
-            else if(code===62)entityACI=parseInt(raw);
-            else if(code===8)layerName=raw.trim();
+            else if(code===40&&etype!=='TEXT'&&etype!=='MTEXT')radius=val;
+            else if(code===50)rot=val;else if(code===1)tc=raw.trim();
+            else if(code===3)te+=raw.trim();else if(code===62)aci=parseInt(raw);
+            else if(code===8)lname=raw.trim();
             j+=2;
           }
-
-          if(selectedLayers && !selectedLayers.has(layerName)){i++;continue;}
-
           if(x10.length>0&&y20.length>0){
-            const color=resolveColorL(entityACI,layerName);
-            // Ham veri olarak kaydet — Leaflet obje oluşturma YOK
-            if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_collected.push({t:'PT',c:color,lat,lng});coords.push([lat,lng]);_addVertex(L.latLng(lat,lng));count++;}}
-            else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){_collected.push({t:'LN',c:color,pts:[[la1,ln1],[la2,ln2]]});coords.push([la1,ln1],[la2,ln2]);_addVertex(L.latLng(la1,ln1));_addVertex(L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);count++;}}
-            else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;_collected.push({t:'PL',c:color,pts,closed});pts.forEach(p=>{coords.push(p);_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
-            else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_collected.push({t:'CR',c:color,lat,lng,r:radius});coords.push([lat,lng]);_addVertex(L.latLng(lat,lng));count++;}}
-            else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){_collected.push({t:'SP',c:color,pts});pts.forEach(p=>{coords.push(p);_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
-            else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0&&y20.length>0){
-              const[lat,lng]=conv(x10[0],y20[0]);
-              if(valid(lat,lng)){
-                let label=(textExtra+textContent).trim()
-                  .replace(/\\P/gi,'\n').replace(/\\n/gi,'\n').replace(/\\~/g,' ')
-                  .replace(/\{\\[^}]*\}/g,'').replace(/\\[A-Za-z][^;]*;/g,'')
-                  .replace(/%%c/gi,'⌀').replace(/%%d/gi,'°').replace(/%%p/gi,'±')
-                  .replace(/%%u/gi,'').replace(/%%o/gi,'').replace(/[{}]/g,'').trim();
-                if(label){_collected.push({t:'TX',c:color,lat,lng,label,rot:textRotation||0});coords.push([lat,lng]);count++;}
-              }
-            }
+            const c=resolveC(aci,lname);
+            if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_txt.push({t:'PT',c,lat,lng});_coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));}}
+            else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){_geo.push({t:'LN',c,pts:[[la1,ln1],[la2,ln2]]});_coords.push([la1,ln1],[la2,ln2]);allVertices.push(L.latLng(la1,ln1),L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);}}
+            else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;_geo.push({t:'PL',c,pts,closed});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);}}
+            else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_geo.push({t:'CR',c,lat,lng,r:radius});_coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));}}
+            else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){_geo.push({t:'SP',c,pts});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);}}
+            else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){let lbl=(te+tc).trim().replace(/\\P/gi,'\n').replace(/\\~/g,' ').replace(/\{\\[^}]*\}/g,'').replace(/\\[A-Za-z][^;]*;/g,'').replace(/%%c/gi,'⌀').replace(/%%d/gi,'°').replace(/%%p/gi,'±').replace(/[{}]/g,'').trim();if(lbl){_txt.push({t:'TX',c,lat,lng,lbl,rot});_coords.push([lat,lng]);}}}
           }
         }
       }
       i++;
     }
-
-    const pct = Math.round((i/totalLines)*100);
-    progBar.style.width = pct+'%';
-    progText.textContent = `${pct}% — ${count.toLocaleString()} obje parse edildi`;
-
-    if(i < lines.length-1) {
-      if(_dxfCancelled){prog.style.display='none';return;}
-      requestAnimationFrame(processChunk);
+    const pct=Math.round((i/totalLines)*100);
+    if(progBar)progBar.style.width=pct+'%';
+    if(progText)progText.textContent=`Parse: ${pct}% — ${(_geo.length+_txt.length).toLocaleString()} obje`;
+    if(i<totalLines-1){
+      if(_dxfCancelled){if(prog)prog.style.display='none';return;}
+      requestAnimationFrame(parseChunk);
     } else {
-      // Parse bitti — şimdi render et
-      progText.textContent = 'Haritaya ekleniyor...';
-      setTimeout(()=>renderCollected(_collected,coords,name,fallbackColor),50);
+      if(progText)progText.textContent='Haritaya ekleniyor...';
+      setTimeout(()=>renderPhase(),20);
     }
   }
 
-  requestAnimationFrame(processChunk);
-}
-
-// ── Toplanan veriyi Leaflet'e render et ───────────────────
-function renderCollected(_collected, coords, name, fallbackColor) {
-  const lg = L.layerGroup();
-  const lgText = L.layerGroup();
-  const prog = document.getElementById('dxf-progress');
-  const progBar = document.getElementById('dxf-progress-bar');
-  const progText = document.getElementById('dxf-progress-text');
-
-  // Text/Point objelerini ayır — bunları zoom 15+ olunca render et
-  const geoObjs = _collected.filter(o=>o.t!=='TX'&&o.t!=='PT');
-  const textObjs = _collected.filter(o=>o.t==='TX'||o.t==='PT');
-
-  let ri=0;
-  const RCHUNK=5000; // büyük chunk — canvas renderer hızlı
-
-  function renderChunk(){
-    const end=Math.min(ri+RCHUNK,geoObjs.length);
-    for(;ri<end;ri++){
-      const obj=geoObjs[ri];
-      const{t,c}=obj;
-      if(t==='LN'){L.polyline(obj.pts,{color:c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);}
-      else if(t==='PL'){obj.closed?L.polygon(obj.pts,{color:c,weight:2,fillOpacity:0.1,renderer:_canvasRenderer}).addTo(lg):L.polyline(obj.pts,{color:c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);}
-      else if(t==='CR'){L.circle([obj.lat,obj.lng],{radius:obj.r,color:c,weight:1.5,fillOpacity:0.06,renderer:_canvasRenderer}).addTo(lg);}
-      else if(t==='SP'){L.polyline(obj.pts,{color:c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);}
-    }
-
-    const pct=Math.round((ri/Math.max(geoObjs.length,1))*100);
-    progBar.style.width=pct+'%';
-    progText.textContent=`Render: ${pct}% — ${ri.toLocaleString()} geometri`;
-
-    if(ri<geoObjs.length){
-      if(_dxfCancelled){prog.style.display='none';return;}
-      requestAnimationFrame(renderChunk);
-    } else {
-      // Geometri tamam — haritaya ekle
-      prog.style.display='none';
-      if(coords.length){
-        const b=L.latLngBounds(coords);
-        allBounds=b;
-        lg.addTo(map);
-
-        // Text/Point: zoom 15+ olunca lazy render
-        let textRendered=false;
-        function _updateTextLayer(){
-          const z=map.getZoom();
-          if(z>=15){
-            if(!textRendered){
-              textRendered=true;
-              // Text objeleri lazy render
-              textObjs.forEach(obj=>{
-                if(obj.t==='PT'){
-                  L.circleMarker([obj.lat,obj.lng],{radius:4,color:obj.c,fillColor:obj.c,fillOpacity:0.9,renderer:_canvasRenderer}).addTo(lgText);
-                } else {
-                  const rot=obj.rot?`rotate(${-obj.rot}deg)`:'';
-                  L.marker([obj.lat,obj.lng],{icon:L.divIcon({html:`<div style="color:${obj.c};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${obj.label.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);
-                }
-              });
-            }
-            if(!map.hasLayer(lgText))lgText.addTo(map);
-          } else {
-            if(map.hasLayer(lgText))map.removeLayer(lgText);
-          }
-        }
-        map.on('zoomend',_updateTextLayer);
-        _updateTextLayer();
-
-        const sw=b.getSouthWest(),ne=b.getNorthEast();
-        const isSmall=Math.abs(ne.lat-sw.lat)<0.001&&Math.abs(ne.lng-sw.lng)<0.001;
-        if(isSmall)map.setView(b.getCenter(),16);
-        else map.fitBounds(b,{padding:[30,30],maxZoom:19});
-        addLayer(name,lg,fallbackColor,_collected.length.toLocaleString()+' obj',b);
-        showToast(_collected.length.toLocaleString()+' obje yüklendi');
+  // Aşama 2: Render
+  function renderPhase(){
+    const lg=L.layerGroup();
+    const lgText=L.layerGroup();
+    let ri=0;
+    const RCHUNK=5000;
+    function renderStep(){
+      const end=Math.min(ri+RCHUNK,_geo.length);
+      for(;ri<end;ri++){
+        const o=_geo[ri];
+        if(o.t==='LN')L.polyline(o.pts,{color:o.c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);
+        else if(o.t==='PL')o.closed?L.polygon(o.pts,{color:o.c,weight:2,fillOpacity:0.1,renderer:_canvasRenderer}).addTo(lg):L.polyline(o.pts,{color:o.c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);
+        else if(o.t==='CR')L.circle([o.lat,o.lng],{radius:o.r,color:o.c,weight:1.5,fillOpacity:0.06,renderer:_canvasRenderer}).addTo(lg);
+        else if(o.t==='SP')L.polyline(o.pts,{color:o.c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);
+      }
+      const pct=Math.round((ri/Math.max(_geo.length,1))*100);
+      if(progBar)progBar.style.width=pct+'%';
+      if(progText)progText.textContent=`Render: ${pct}% — ${ri.toLocaleString()} geometri`;
+      if(ri<_geo.length){
+        if(_dxfCancelled){if(prog)prog.style.display='none';return;}
+        requestAnimationFrame(renderStep);
       } else {
-        showToast('Geometri bulunamadı — koordinat sistemi doğru mu?');
+        if(prog)prog.style.display='none';
+        if(_coords.length){
+          const b=L.latLngBounds(_coords);
+          allBounds=b;
+          lg.addTo(map);
+          // Text/Point: zoom 15+ lazy render
+          let textDone=false;
+          function showText(){
+            const z=map.getZoom();
+            if(z>=15){
+              if(!textDone){textDone=true;_txt.forEach(o=>{
+                if(o.t==='PT')L.circleMarker([o.lat,o.lng],{radius:4,color:o.c,fillColor:o.c,fillOpacity:0.9,renderer:_canvasRenderer}).addTo(lgText);
+                else{const rot=o.rot?`rotate(${-o.rot}deg)`:'';L.marker([o.lat,o.lng],{icon:L.divIcon({html:`<div style="color:${o.c};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${o.lbl.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);}
+              });}
+              if(!map.hasLayer(lgText))lgText.addTo(map);
+            } else {
+              if(map.hasLayer(lgText))map.removeLayer(lgText);
+            }
+          }
+          map.on('zoomend',showText);showText();
+          const sw=b.getSouthWest(),ne=b.getNorthEast();
+          const isSmall=Math.abs(ne.lat-sw.lat)<0.001&&Math.abs(ne.lng-sw.lng)<0.001;
+          if(isSmall)map.setView(b.getCenter(),16);
+          else map.fitBounds(b,{padding:[30,30],maxZoom:19});
+          addLayer(name,lg,color,(_geo.length+_txt.length)+' obj',b);
+          showToast((_geo.length+_txt.length).toLocaleString()+' obje yüklendi');
+        } else {
+          showToast('Geometri bulunamadı — koordinat sistemi doğru mu?');
+        }
       }
     }
+    requestAnimationFrame(renderStep);
   }
-  requestAnimationFrame(renderChunk);
+
+  requestAnimationFrame(parseChunk);
 }
 
-
+// ── Dil sistemi ───────────────────────────────────────────
 let currentLang = localStorage.getItem('lang') || 'tr';
 const T = {
   tr: {
@@ -1933,7 +1365,7 @@ function guessDXFProjection(lines) {
 
 function openDxfRefModal(dxfText, dxfName) {
   pendingDXFForRef = {text:dxfText, name:dxfName, offset:{dx:0,dy:0}};
-  const lines = dxfText.replace(/\r/g,'').split('\n').map(l=>l.trim());
+  const lines = dxfText.split('\n').map(l=>l.trim());
   const guess = guessDXFProjection(lines);
 
   document.getElementById('dxf-ref-title').textContent = t('dxfNoCoord');
@@ -1987,9 +1419,9 @@ function applyDxfRef() {
     }
   }
   closeDxfRefModal();
-  // Katman seçiciye geç
-  openDxfLayerModal(pendingDXFForRef.text, pendingDXFForRef.name, pendingDXFForRef.offset||{});
+  parseDXFWithProj(pendingDXFForRef.text, pendingDXFForRef.name, pendingDXFForRef.offset);
   pendingDXFForRef = null;
+  showToast(t('dxfRefApplied'));
 }
 
 
@@ -2203,7 +1635,7 @@ function deleteUserProject(id) {
 
 function clearAllLayers() {
   Object.values(layerGroups).forEach(lg=>map.removeLayer(lg.layer));
-  layerGroups={};allBounds=null;kmlObjects=[];allVertices=[];allSnapSegments=[];_vertexGrid.clear();
+  layerGroups={};allBounds=null;kmlObjects=[];allVertices=[];
   renderLayerList();
   document.getElementById('file-label').textContent='DXF · KML · KMZ';
 }
@@ -2434,7 +1866,16 @@ function checkNightMode(){
   else if(!isNight&&currentBase==='dark')setMapType('osm');
 }
 
-// findSnapVertex snapRadius'u zaten kullanıyor — override gereksiz
+// findSnapVertex'i snapRadius kullanacak şekilde güncelle
+const _origFindSnap=findSnapVertex;
+window.findSnapVertex=function(latlng){
+  if(!allVertices.length)return null;
+  const zoom=map.getZoom();
+  const snapMeters=snapRadius*40075016*Math.cos(latlng.lat*Math.PI/180)/(256*Math.pow(2,zoom));
+  let closest=null,minDist=snapMeters;
+  for(let v of allVertices){const d=latlng.distanceTo(v);if(d<minDist){minDist=d;closest=v;}}
+  return closest;
+};
 
 // ── finishArea'ya ölçüm kaydet ────────────────────────────
 const _origFinishArea=finishArea;
@@ -2621,11 +2062,10 @@ function createLabelIcon(text) {
 function placePinAt(latlng) {
   const id = 'pin_' + Date.now();
 
-  // Snap kontrolü — tip bilgisi de al
-  const snapResult = findSnapPoint(latlng);
-  const useLl = snapResult ? snapResult.ll : latlng;
-  const isSnapped = !!snapResult;
-  const snapType = snapResult ? snapResult.type : null;
+  // Snap kontrolü
+  const snapPt = findSnapVertex(latlng);
+  const useLl = snapPt || latlng;
+  const isSnapped = !!snapPt;
 
   const marker = L.marker(useLl, {
     icon: createPinIcon(''),
@@ -2636,27 +2076,29 @@ function placePinAt(latlng) {
   // Sürüklerken snap preview
   marker.on('drag', e => {
     const pos = e.target.getLatLng();
-    const snap = findSnapPoint(pos);
+    const snap = findSnapVertex(pos);
     if(snap) {
-      e.target.setLatLng(snap.ll);
-      showSnapPreview(pos);
+      e.target.setLatLng(snap);
+      if(!snapMarker) snapMarker = L.circleMarker(snap,{radius:10,color:'#00d4aa',fillColor:'#00d4aa',fillOpacity:0.3,weight:2}).addTo(map);
+      else snapMarker.setLatLng(snap);
     } else {
       removeSnapPreview();
     }
   });
 
-  // Sürükleme bitti — snap varsa yapış
+  // Sürükleme bitti — snap varsa yapış, isim etiketini güncelle
   marker.on('dragend', e => {
     const pin = pins.find(p=>p.id===id);
     if(!pin) return;
     const pos = e.target.getLatLng();
-    const snap = findSnapPoint(pos);
-    const finalLl = snap ? snap.ll : pos;
+    const snap = findSnapVertex(pos);
+    const finalLl = snap || pos;
     pin.ll = finalLl;
     pin.snapped = !!snap;
-    pin.snapType = snap ? snap.type : null;
     marker.setLatLng(finalLl);
     removeSnapPreview();
+    // İsim etiketini güncelle
+    // popup marker ile birlikte hareket eder
     updatePinPopupCoords(pin);
   });
 
@@ -2665,7 +2107,7 @@ function placePinAt(latlng) {
     openPinModal(id);
   });
 
-  const pin = { id, ll: useLl, marker, nameMarker: null, labelMarker: null, name: '', label: '', snapped: isSnapped, snapType };
+  const pin = { id, ll: useLl, marker, nameMarker: null, labelMarker: null, name: '', label: '', snapped: isSnapped };
   pins.push(pin);
 
   // Pin modunu kapat
@@ -2674,9 +2116,8 @@ function placePinAt(latlng) {
   document.getElementById('pin-mode-bar').style.display = 'none';
   document.getElementById('map').style.cursor = '';
   map.getContainer().removeEventListener('click', _pinClickHandler);
-  removeSnapPreview();
 
-  // Modal aç
+  // Modal aç, isim input'una focus
   setTimeout(() => {
     openPinModal(id);
     setTimeout(() => {
@@ -2694,15 +2135,7 @@ function openPinModal(id) {
 
   // Snap badge
   const snapBadge = document.getElementById('pin-snap-badge');
-  if(snapBadge) {
-    if(pin.snapped){
-      const tipText = pin.snapType==='vertex'?'⬡ Köşe':pin.snapType==='midpoint'?'◆ Orta':'✕ Segment';
-      snapBadge.textContent = tipText;
-      snapBadge.style.display = 'block';
-    } else {
-      snapBadge.style.display = 'none';
-    }
-  }
+  if(snapBadge) snapBadge.style.display = pin.snapped ? 'block' : 'none';
   // Koordinatları hesapla
   const lat = pin.ll.lat, lng = pin.ll.lng;
   const [N, E] = latLngToTM30(lat, lng);
