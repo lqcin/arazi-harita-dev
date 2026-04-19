@@ -1144,7 +1144,18 @@ function parseDXFWithProj(text,name,offset){
             else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;_geo.push({t:'PL',c,pts,closed});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);}}
             else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_geo.push({t:'CR',c,lat,lng,r:radius});_coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));}}
             else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){_geo.push({t:'SP',c,pts});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);}}
-            // TEXT/MTEXT — DXF text'leri gösterilmiyor, kullanıcı 🔤 butonuyla kendi yazısını ekler
+            // TEXT/MTEXT — DXF'ten gelen text'ler yüklenmiyor, kullanıcı kendi yazısını ekleyebilir
+            else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){let lbl=(te+tc).trim()
+                .replace(/\\p[^;]*;/gi,'')
+                .replace(/\\P/g,'\n').replace(/\\n/gi,'\n').replace(/\\~/g,' ')
+                .replace(/\\U\+[0-9A-Fa-f]{4}/g,'')
+                .replace(/\{[^}]*\}/g,'')
+                .replace(/\\[A-Za-z0-9.,+\-]+;?/g,'')
+                .replace(/%%c/gi,'⌀').replace(/%%d/gi,'°').replace(/%%p/gi,'±')
+                .replace(/%%u/gi,'').replace(/%%o/gi,'')
+                .replace(/[{}|\\;<>]/g,'')
+                .replace(/\s+/g,' ').trim();
+              if(lbl&&lbl.length>0&&lbl.length<200){_txt.push({t:'TX',c,lat,lng,lbl,rot});_coords.push([lat,lng]);}}}
           }
         }
       }
