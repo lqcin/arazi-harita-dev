@@ -1562,7 +1562,9 @@ function parseDXFChunked(text, name, offset, selectedLayers) {
   const valid=(lat,lng)=>!isNaN(lat)&&!isNaN(lng)&&lat>=-90&&lat<=90&&lng>=-180&&lng<=180&&!(lat===0&&lng===0);
   const conv=(x,y)=>convertCoord(x,y,offset);
 
-  const CHUNK = 5000; // satır başına işlenecek satır sayısı
+  // Parse aşamasında geometriyi ham veri olarak topla — Leaflet obje oluşturma YOK
+  const _collected = []; // {type, color, data}
+  const CHUNK = 8000;
 
   function processChunk() {
     const end = Math.min(i + CHUNK, lines.length - 1);
@@ -1595,20 +1597,16 @@ function parseDXFChunked(text, name, offset, selectedLayers) {
             j+=2;
           }
 
-          // Katman filtresi
           if(selectedLayers && !selectedLayers.has(layerName)){i++;continue;}
 
           if(x10.length>0&&y20.length>0){
             const color=resolveColorL(entityACI,layerName);
-            if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9,renderer:_canvasRenderer}).addTo(lgText);coords.push([lat,lng]);
-_addVertex(L.latLng(lat,lng));count++;}}
-            else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){L.polyline([[la1,ln1],[la2,ln2]],{color,weight:1.5}).addTo(lg);coords.push([la1,ln1],[la2,ln2]);_addVertex(L.latLng(la1,ln1));_addVertex(L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);count++;}}
-            else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);
-_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
-            else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){const circ=L.circle([lat,lng],{radius,color,weight:1.5,fillOpacity:0.06}).addTo(lg);circ.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:'Daire',pts:[[lat,lng]],type:'circle',radius});});coords.push([lat,lng]);
-_addVertex(L.latLng(lat,lng));count++;}}
-            else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);
-_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
+            // Ham veri olarak kaydet — Leaflet obje oluşturma YOK
+            if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_collected.push({t:'PT',c:color,lat,lng});coords.push([lat,lng]);_addVertex(L.latLng(lat,lng));count++;}}
+            else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){_collected.push({t:'LN',c:color,pts:[[la1,ln1],[la2,ln2]]});coords.push([la1,ln1],[la2,ln2]);_addVertex(L.latLng(la1,ln1));_addVertex(L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);count++;}}
+            else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;_collected.push({t:'PL',c:color,pts,closed});pts.forEach(p=>{coords.push(p);_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
+            else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_collected.push({t:'CR',c:color,lat,lng,r:radius});coords.push([lat,lng]);_addVertex(L.latLng(lat,lng));count++;}}
+            else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){_collected.push({t:'SP',c:color,pts});pts.forEach(p=>{coords.push(p);_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
             else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0&&y20.length>0){
               const[lat,lng]=conv(x10[0],y20[0]);
               if(valid(lat,lng)){
@@ -1617,11 +1615,7 @@ _addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegment
                   .replace(/\{\\[^}]*\}/g,'').replace(/\\[A-Za-z][^;]*;/g,'')
                   .replace(/%%c/gi,'⌀').replace(/%%d/gi,'°').replace(/%%p/gi,'±')
                   .replace(/%%u/gi,'').replace(/%%o/gi,'').replace(/[{}]/g,'').trim();
-                if(label){
-                  const rot=textRotation?`rotate(${-textRotation}deg)`:'';
-                  L.marker([lat,lng],{icon:L.divIcon({html:`<div style="color:${color};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${label.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);
-                  coords.push([lat,lng]);count++;
-                }
+                if(label){_collected.push({t:'TX',c:color,lat,lng,label,rot:textRotation||0});coords.push([lat,lng]);count++;}
               }
             }
           }
@@ -1630,47 +1624,87 @@ _addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegment
       i++;
     }
 
-    // Progress güncelle
     const pct = Math.round((i/totalLines)*100);
     progBar.style.width = pct+'%';
-    progText.textContent = `${pct}% — ${count.toLocaleString()} obje yüklendi`;
+    progText.textContent = `${pct}% — ${count.toLocaleString()} obje parse edildi`;
 
     if(i < lines.length-1) {
       if(_dxfCancelled){prog.style.display='none';return;}
-      // Sonraki chunk'ı sıraya al — UI'ın nefes almasına izin ver
       requestAnimationFrame(processChunk);
     } else {
-      // Bitti
+      // Parse bitti — şimdi render et
+      progText.textContent = 'Haritaya ekleniyor...';
+      setTimeout(()=>renderCollected(_collected,coords,name,fallbackColor),50);
+    }
+  }
+
+  requestAnimationFrame(processChunk);
+}
+
+// ── Toplanan veriyi Leaflet'e render et ───────────────────
+function renderCollected(_collected, coords, name, fallbackColor) {
+  const lg = L.layerGroup();
+  const lgText = L.layerGroup();
+  const prog = document.getElementById('dxf-progress');
+  const progText = document.getElementById('dxf-progress-text');
+
+  // Render chunk'ları — her 2000 objede bir UI'ya nefes ver
+  let ri=0;
+  const RCHUNK=2000;
+
+  function renderChunk(){
+    const end=Math.min(ri+RCHUNK,_collected.length);
+    for(;ri<end;ri++){
+      const obj=_collected[ri];
+      const{t,c}=obj;
+      if(t==='PT'){L.circleMarker([obj.lat,obj.lng],{radius:4,color:c,fillColor:c,fillOpacity:0.9,renderer:_canvasRenderer}).addTo(lgText);}
+      else if(t==='LN'){L.polyline(obj.pts,{color:c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);}
+      else if(t==='PL'){obj.closed?L.polygon(obj.pts,{color:c,weight:2,fillOpacity:0.1,renderer:_canvasRenderer}).addTo(lg):L.polyline(obj.pts,{color:c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);}
+      else if(t==='CR'){L.circle([obj.lat,obj.lng],{radius:obj.r,color:c,weight:1.5,fillOpacity:0.06,renderer:_canvasRenderer}).addTo(lg);}
+      else if(t==='SP'){L.polyline(obj.pts,{color:c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);}
+      else if(t==='TX'){
+        const rot=obj.rot?`rotate(${-obj.rot}deg)`:'';
+        L.marker([obj.lat,obj.lng],{icon:L.divIcon({html:`<div style="color:${c};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${obj.label.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);
+      }
+    }
+
+    const pct=Math.round((ri/_collected.length)*100);
+    progBar.style.width=pct+'%';
+    progText.textContent=`Render: ${pct}% — ${ri.toLocaleString()}/${_collected.length.toLocaleString()} obje`;
+
+    if(ri<_collected.length){
+      if(_dxfCancelled){prog.style.display='none';return;}
+      requestAnimationFrame(renderChunk);
+    } else {
+      // Tamamlandı
       prog.style.display='none';
       if(coords.length){
         const b=L.latLngBounds(coords);
         allBounds=b;
         lg.addTo(map);
-        // Text + point katmanı: sadece zoom 15+ görünür
-        const TEXT_MIN_ZOOM = 15;
-        function _updateTextLayer() {
-          const z = map.getZoom();
-          if(z >= TEXT_MIN_ZOOM) { if(!map.hasLayer(lgText)) lgText.addTo(map); }
-          else { if(map.hasLayer(lgText)) map.removeLayer(lgText); }
+        const TEXT_MIN_ZOOM=15;
+        function _updateTextLayer(){
+          const z=map.getZoom();
+          if(z>=TEXT_MIN_ZOOM){if(!map.hasLayer(lgText))lgText.addTo(map);}
+          else{if(map.hasLayer(lgText))map.removeLayer(lgText);}
         }
         _updateTextLayer();
-        map.on('zoomend', _updateTextLayer);
-
+        map.on('zoomend',_updateTextLayer);
         const sw=b.getSouthWest(),ne=b.getNorthEast();
         const isSmall=Math.abs(ne.lat-sw.lat)<0.001&&Math.abs(ne.lng-sw.lng)<0.001;
         if(isSmall)map.setView(b.getCenter(),16);
         else map.fitBounds(b,{padding:[30,30],maxZoom:19});
-        addLayer(name,lg,fallbackColor,count+' obj',b);
-        showToast(count.toLocaleString()+' obje yüklendi — text zoom 15+ görünür');
+        addLayer(name,lg,fallbackColor,_collected.length.toLocaleString()+' obj',b);
+        showToast(_collected.length.toLocaleString()+' obje yüklendi');
       } else {
         showToast('Geometri bulunamadı — koordinat sistemi doğru mu?');
       }
     }
   }
-
-  // İlk chunk'ı başlat
-  requestAnimationFrame(processChunk);
+  requestAnimationFrame(renderChunk);
 }
+
+
 let currentLang = localStorage.getItem('lang') || 'tr';
 const T = {
   tr: {
