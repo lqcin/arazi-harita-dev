@@ -1646,50 +1646,67 @@ function renderCollected(_collected, coords, name, fallbackColor) {
   const lg = L.layerGroup();
   const lgText = L.layerGroup();
   const prog = document.getElementById('dxf-progress');
+  const progBar = document.getElementById('dxf-progress-bar');
   const progText = document.getElementById('dxf-progress-text');
 
-  // Render chunk'ları — her 2000 objede bir UI'ya nefes ver
+  // Text/Point objelerini ayır — bunları zoom 15+ olunca render et
+  const geoObjs = _collected.filter(o=>o.t!=='TX'&&o.t!=='PT');
+  const textObjs = _collected.filter(o=>o.t==='TX'||o.t==='PT');
+
   let ri=0;
-  const RCHUNK=2000;
+  const RCHUNK=5000; // büyük chunk — canvas renderer hızlı
 
   function renderChunk(){
-    const end=Math.min(ri+RCHUNK,_collected.length);
+    const end=Math.min(ri+RCHUNK,geoObjs.length);
     for(;ri<end;ri++){
-      const obj=_collected[ri];
+      const obj=geoObjs[ri];
       const{t,c}=obj;
-      if(t==='PT'){L.circleMarker([obj.lat,obj.lng],{radius:4,color:c,fillColor:c,fillOpacity:0.9,renderer:_canvasRenderer}).addTo(lgText);}
-      else if(t==='LN'){L.polyline(obj.pts,{color:c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);}
+      if(t==='LN'){L.polyline(obj.pts,{color:c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);}
       else if(t==='PL'){obj.closed?L.polygon(obj.pts,{color:c,weight:2,fillOpacity:0.1,renderer:_canvasRenderer}).addTo(lg):L.polyline(obj.pts,{color:c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);}
       else if(t==='CR'){L.circle([obj.lat,obj.lng],{radius:obj.r,color:c,weight:1.5,fillOpacity:0.06,renderer:_canvasRenderer}).addTo(lg);}
       else if(t==='SP'){L.polyline(obj.pts,{color:c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);}
-      else if(t==='TX'){
-        const rot=obj.rot?`rotate(${-obj.rot}deg)`:'';
-        L.marker([obj.lat,obj.lng],{icon:L.divIcon({html:`<div style="color:${c};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${obj.label.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);
-      }
     }
 
-    const pct=Math.round((ri/_collected.length)*100);
+    const pct=Math.round((ri/Math.max(geoObjs.length,1))*100);
     progBar.style.width=pct+'%';
-    progText.textContent=`Render: ${pct}% — ${ri.toLocaleString()}/${_collected.length.toLocaleString()} obje`;
+    progText.textContent=`Render: ${pct}% — ${ri.toLocaleString()} geometri`;
 
-    if(ri<_collected.length){
+    if(ri<geoObjs.length){
       if(_dxfCancelled){prog.style.display='none';return;}
       requestAnimationFrame(renderChunk);
     } else {
-      // Tamamlandı
+      // Geometri tamam — haritaya ekle
       prog.style.display='none';
       if(coords.length){
         const b=L.latLngBounds(coords);
         allBounds=b;
         lg.addTo(map);
-        const TEXT_MIN_ZOOM=15;
+
+        // Text/Point: zoom 15+ olunca lazy render
+        let textRendered=false;
         function _updateTextLayer(){
           const z=map.getZoom();
-          if(z>=TEXT_MIN_ZOOM){if(!map.hasLayer(lgText))lgText.addTo(map);}
-          else{if(map.hasLayer(lgText))map.removeLayer(lgText);}
+          if(z>=15){
+            if(!textRendered){
+              textRendered=true;
+              // Text objeleri lazy render
+              textObjs.forEach(obj=>{
+                if(obj.t==='PT'){
+                  L.circleMarker([obj.lat,obj.lng],{radius:4,color:obj.c,fillColor:obj.c,fillOpacity:0.9,renderer:_canvasRenderer}).addTo(lgText);
+                } else {
+                  const rot=obj.rot?`rotate(${-obj.rot}deg)`:'';
+                  L.marker([obj.lat,obj.lng],{icon:L.divIcon({html:`<div style="color:${obj.c};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${obj.label.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);
+                }
+              });
+            }
+            if(!map.hasLayer(lgText))lgText.addTo(map);
+          } else {
+            if(map.hasLayer(lgText))map.removeLayer(lgText);
+          }
         }
-        _updateTextLayer();
         map.on('zoomend',_updateTextLayer);
+        _updateTextLayer();
+
         const sw=b.getSouthWest(),ne=b.getNorthEast();
         const isSmall=Math.abs(ne.lat-sw.lat)<0.001&&Math.abs(ne.lng-sw.lng)<0.001;
         if(isSmall)map.setView(b.getCenter(),16);
