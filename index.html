@@ -1079,6 +1079,7 @@ function parseDXFWithProj(text,name,offset){
             else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){let lbl=(te+tc).trim()
                 .replace(/\\P/gi,'\n')
                 .replace(/\\n/gi,'\n')
+                .replace(/\\p[^;]*;/gi,'')        // \pxql; \pi2; paragraph direktifleri
                 .replace(/\\~/g,' ')
                 .replace(/\\U\+[0-9A-Fa-f]{4}/g,'')
                 .replace(/\{[^}]*\}/g,'')          // {....} tüm blokları sil
