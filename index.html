@@ -183,13 +183,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   </div>
 </div>
 <!-- DXF Parse Progress -->
-<div id="dxf-progress" style="position:absolute;inset:0;z-index:540;background:rgba(15,15,26,0.92);display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
-  <div style="font-size:32px;">⚙️</div>
-  <div style="font-size:15px;font-weight:700;color:var(--text);">DXF Yükleniyor</div>
-  <div style="width:220px;background:rgba(255,255,255,0.08);border-radius:10px;height:6px;overflow:hidden;">
-    <div id="dxf-progress-bar" style="height:100%;background:var(--accent);border-radius:10px;width:0%;transition:width 0.2s;"></div>
+<div id="dxf-progress" style="position:absolute;bottom:90px;left:50%;transform:translateX(-50%);z-index:300;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:none;flex-direction:column;gap:8px;min-width:260px;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,0.4);">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="spinner" style="width:16px;height:16px;border-width:2px;"></div>
+      <span style="font-size:13px;font-weight:600;color:var(--text);">DXF Yükleniyor</span>
+    </div>
+    <span onclick="cancelDXFLoad()" style="color:var(--danger);cursor:pointer;font-size:18px;line-height:1;">×</span>
   </div>
-  <div id="dxf-progress-text" style="font-size:12px;color:var(--text2);">Hazırlanıyor...</div>
+  <div style="width:100%;background:rgba(255,255,255,0.08);border-radius:10px;height:4px;overflow:hidden;">
+    <div id="dxf-progress-bar" style="height:100%;background:var(--accent);border-radius:10px;width:0%;transition:width 0.15s;"></div>
+  </div>
+  <div id="dxf-progress-text" style="font-size:11px;color:var(--text2);">Hazırlanıyor...</div>
 </div>
 <div id="loading"><div style="font-size:44px">🗺️</div><div style="font-size:18px;font-weight:700">Field Map</div><div style="font-size:11px;color:#ff9f43;margin-top:-8px;letter-spacing:3px;">DEV</div><div class="spinner"></div></div>
 <div id="map"></div>
@@ -1512,7 +1517,15 @@ function confirmDxfLayers() {
 }
 
 // ── DXF Chunk Parse (UI donmadan) ────────────────────────
+let _dxfCancelled=false;
+function cancelDXFLoad(){
+  _dxfCancelled=true;
+  document.getElementById('dxf-progress').style.display='none';
+  showToast('Yükleme iptal edildi');
+}
+
 function parseDXFChunked(text, name, offset, selectedLayers) {
+  _dxfCancelled=false;
   const prog = document.getElementById('dxf-progress');
   const progBar = document.getElementById('dxf-progress-bar');
   const progText = document.getElementById('dxf-progress-text');
@@ -1623,6 +1636,7 @@ _addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegment
     progText.textContent = `${pct}% — ${count.toLocaleString()} obje yüklendi`;
 
     if(i < lines.length-1) {
+      if(_dxfCancelled){prog.style.display='none';return;}
       // Sonraki chunk'ı sıraya al — UI'ın nefes almasına izin ver
       requestAnimationFrame(processChunk);
     } else {
