@@ -171,6 +171,36 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   <span style="font-size:12px;color:#ff9f43;font-weight:600;">📌 Nokta modu — haritaya dokun</span>
   <span onclick="togglePinMode()" style="color:var(--text2);cursor:pointer;font-size:14px;">✕ Kapat</span>
 </div>
+<div id="text-mode-bar" style="position:absolute;top:54px;left:0;right:0;z-index:99;background:rgba(74,158,255,0.15);border-bottom:1px solid rgba(74,158,255,0.4);padding:6px 12px;display:none;align-items:center;justify-content:space-between;">
+  <span style="font-size:12px;color:var(--accent);font-weight:600;">🔤 Yazı modu — haritaya dokun</span>
+  <span onclick="toggleTextMode()" style="color:var(--text2);cursor:pointer;font-size:14px;">✕ Kapat</span>
+</div>
+<!-- Text input modal -->
+<div id="text-input-modal" style="position:absolute;inset:0;z-index:500;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;width:100%;max-width:340px;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px;">🔤 Yazı Ekle</div>
+    <input type="text" id="text-input-value" placeholder="Yazınızı girin..." style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:15px;color:var(--text);outline:none;margin-bottom:8px;">
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <div style="flex:1;">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">Renk</div>
+        <input type="color" id="text-input-color" value="#ffffff" style="width:100%;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:transparent;">
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:4px;">Boyut</div>
+        <select id="text-input-size" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;color:var(--text);outline:none;">
+          <option value="12">Küçük</option>
+          <option value="16" selected>Orta</option>
+          <option value="22">Büyük</option>
+          <option value="30">Çok Büyük</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="cancelTextInput()" style="flex:1;padding:9px;border-radius:8px;font-size:13px;cursor:pointer;border:none;background:var(--surface2);color:var(--text2);">İptal</button>
+      <button onclick="confirmTextInput()" style="flex:1;padding:9px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:var(--accent);color:#fff;">Ekle</button>
+    </div>
+  </div>
+</div>
 <div id="goto-bar">
   <input type="text" id="goto-input" placeholder="N  E  (ör: 4567388  388429)" inputmode="decimal">
   <button onclick="gotoCoord()">Git</button>
@@ -202,6 +232,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   <div class="tool-btn" id="btn-maptype" onclick="togglePanel('maptype-panel','btn-maptype')"><span class="icon">🛰</span><span>Harita</span></div>
   <div class="tool-btn" id="btn-goto" onclick="toggleGoto()"><span class="icon">🎯</span><span>Git</span></div>
   <div class="tool-btn" id="btn-pin" onclick="togglePinMode()"><span class="icon">📌</span><span id="btn-pin-lbl">Nokta</span></div>
+  <div class="tool-btn" id="btn-text" onclick="toggleTextMode()"><span class="icon">🔤</span><span>Yazı</span></div>
   <div class="tool-btn" id="btn-stakeout" onclick="openStakeoutModal()"><span class="icon">🔭</span><span id="btn-stakeout-lbl">Konum Bul</span></div>
   <div class="tool-btn" id="btn-more" onclick="toggleMore()"><span class="icon">⋯</span><span id="btn-more-lbl">Daha Fazla</span></div>
 </div>
@@ -215,6 +246,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     <div class="tool-btn" id="btn-settings" onclick="togglePanel('settings-panel','btn-settings');closeMore()"><span class="icon">⚙️</span><span id="btn-settings-lbl">Ayarlar</span></div>
     <div class="tool-btn" id="btn-projects" onclick="togglePanel('projects-panel','btn-projects');closeMore()"><span class="icon">📁</span><span id="btn-projects-lbl">Projeler</span></div>
     <div class="tool-btn" id="btn-rec" onclick="toggleRecord();closeMore()"><span class="icon">⏺</span><span>Rota</span></div>
+    <div class="tool-btn" onclick="exportMapKML();closeMore()"><span class="icon">📤</span><span>KML Gönder</span></div>
   </div>
 </div>
 <!-- Projeler paneli -->
@@ -740,6 +772,8 @@ function removeSnapPreview() {
 }
 
 function onMapClick(e){
+  // Text modu
+  if(textMode){_textClickHandler(e.latlng.lat,e.latlng.lng);return;}
   if(!distModeActive&&gpsActive&&gpsMarker){
     const d=gpsMarker.getLatLng().distanceTo(e.latlng);
     const ds=d>=1000?(d/1000).toFixed(2)+' km':d.toFixed(0)+' m';
@@ -2273,6 +2307,110 @@ function updatePinPopupCoords(pin) {
   }
 }
 
+
+// ── Text ekleme modu ─────────────────────────────────────
+let textMode=false;
+let _textMarkers=[]; // {marker, text, color, size, lat, lng}
+let _pendingTextLatLng=null;
+
+function toggleTextMode(){
+  textMode=!textMode;
+  document.getElementById('btn-text').classList.toggle('active',textMode);
+  document.getElementById('text-mode-bar').style.display=textMode?'flex':'none';
+  if(textMode){
+    closeAllPanels();
+    map.getContainer().style.cursor='text';
+  } else {
+    map.getContainer().style.cursor='';
+  }
+}
+
+function _textClickHandler(lat,lng){
+  if(!textMode)return;
+  _pendingTextLatLng={lat,lng};
+  document.getElementById('text-input-value').value='';
+  document.getElementById('text-input-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('text-input-value').focus(),100);
+}
+
+function cancelTextInput(){
+  document.getElementById('text-input-modal').style.display='none';
+  _pendingTextLatLng=null;
+}
+
+function confirmTextInput(){
+  const val=document.getElementById('text-input-value').value.trim();
+  if(!val){showToast('Yazı girin');return;}
+  const color=document.getElementById('text-input-color').value;
+  const size=parseInt(document.getElementById('text-input-size').value);
+  document.getElementById('text-input-modal').style.display='none';
+  if(_pendingTextLatLng){
+    addTextMarker(_pendingTextLatLng.lat,_pendingTextLatLng.lng,val,color,size);
+    _pendingTextLatLng=null;
+  }
+}
+
+function addTextMarker(lat,lng,text,color,size){
+  const id='txt_'+Date.now();
+  const el=document.createElement('div');
+  el.style.cssText='position:relative;cursor:move;';
+  el.innerHTML=`<div id="tm_${id}" style="color:${color};font-family:'Inter',sans-serif;font-size:${size}px;font-weight:700;white-space:nowrap;background:rgba(15,15,26,0.75);padding:2px 6px;border-radius:4px;user-select:none;">${text}</div><span onclick="deleteTextMarker('${id}')" style="position:absolute;top:-8px;right:-8px;background:var(--danger);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;">×</span>`;
+  const marker=new L.marker([lat,lng],{
+    icon:L.divIcon({html:el.outerHTML,className:'',iconAnchor:[0,0]}),
+    draggable:true,
+    zIndexOffset:2000
+  }).addTo(map);
+  _textMarkers.push({id,marker,text,color,size,lat,lng});
+  showToast('Yazı eklendi');
+}
+
+function deleteTextMarker(id){
+  const idx=_textMarkers.findIndex(t=>t.id===id);
+  if(idx>=0){map.removeLayer(_textMarkers[idx].marker);_textMarkers.splice(idx,1);}
+}
+
+// ── KML Export — DXF geometri + text marker'lar ──────────
+function exportMapKML(){
+  let kml=`<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n<name>Field Map Export</name>\n`;
+
+  // Waypoint'ler (pin'ler)
+  if(typeof pins!=='undefined'){
+    pins.forEach(p=>{
+      if(p.ll||p.lat){
+        const lat=p.lat||p.ll?.lat;const lng=p.lng||p.ll?.lng;
+        kml+=`<Placemark><name>${p.name||'Nokta'}</name><Point><coordinates>${lng},${lat},0</coordinates></Point></Placemark>\n`;
+      }
+    });
+  }
+
+  // Text marker'lar
+  _textMarkers.forEach(t=>{
+    const ll=t.marker.getLatLng();
+    kml+=`<Placemark><name>${t.text}</name><description>text_marker</description><Point><coordinates>${ll.lng},${ll.lat},0</coordinates></Point></Placemark>\n`;
+  });
+
+  // KML objeleri (yüklü DXF/KML geometrisi)
+  kmlObjects.forEach(o=>{
+    if(o.type==='line'&&o.pts?.length){
+      const coords=o.pts.map(p=>`${p[1]},${p[0]},0`).join(' ');
+      kml+=`<Placemark><name>${o.name||''}</name><LineString><coordinates>${coords}</coordinates></LineString></Placemark>\n`;
+    } else if(o.type==='poly'&&o.pts?.length){
+      const coords=o.pts.map(p=>`${p[1]},${p[0]},0`).join(' ');
+      kml+=`<Placemark><name>${o.name||''}</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>\n`;
+    } else if(o.type==='point'&&o.pts?.length){
+      const p=o.pts[0];
+      kml+=`<Placemark><name>${o.name||''}</name><Point><coordinates>${p[1]},${p[0]},0</coordinates></Point></Placemark>\n`;
+    }
+  });
+
+  kml+=`</Document>\n</kml>`;
+  const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='field-map-export.kml';
+  a.click();
+  showToast('KML indirildi — karşı tarafa gönderin');
+}
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
 </script>
