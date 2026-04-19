@@ -1076,7 +1076,22 @@ function parseDXFWithProj(text,name,offset){
             else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;_geo.push({t:'PL',c,pts,closed});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);}}
             else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_geo.push({t:'CR',c,lat,lng,r:radius});_coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));}}
             else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){_geo.push({t:'SP',c,pts});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);}}
-            else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){let lbl=(te+tc).trim().replace(/\\P/gi,'\n').replace(/\\~/g,' ').replace(/\{\\[^}]*\}/g,'').replace(/\\[A-Za-z][^;]*;/g,'').replace(/%%c/gi,'⌀').replace(/%%d/gi,'°').replace(/%%p/gi,'±').replace(/[{}]/g,'').trim();if(lbl){_txt.push({t:'TX',c,lat,lng,lbl,rot});_coords.push([lat,lng]);}}}
+            else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){let lbl=(te+tc).trim()
+                .replace(/\\P/gi,'\n')           // paragraf sonu
+                .replace(/\\n/gi,'\n')            // satır sonu
+                .replace(/\\~/g,' ')              // non-breaking space
+                .replace(/\\U\+[0-9A-Fa-f]{4}/g,'') // unicode escape \U+XXXX
+                .replace(/\{\\[^}]*\}/g,'')       // {\\fFont;...} font blokları
+                .replace(/\\[A-Za-z0-9]+;/g,'')   // \H2x; \W1; \T0; vb direktifler
+                .replace(/%%c/gi,'⌀')
+                .replace(/%%d/gi,'°')
+                .replace(/%%p/gi,'±')
+                .replace(/%%u/gi,'')
+                .replace(/%%o/gi,'')
+                .replace(/[{}|\\]/g,'')           // kalan özel karakterler
+                .replace(/\s+/g,' ')              // çoklu boşluk
+                .trim();
+              if(lbl&&lbl.length>0&&lbl.length<200){_txt.push({t:'TX',c,lat,lng,lbl,rot});_coords.push([lat,lng]);}}}
           }
         }
       }
@@ -1087,6 +1102,18 @@ function parseDXFWithProj(text,name,offset){
     if(progText)progText.textContent=`Parse: ${pct}% — ${(_geo.length+_txt.length).toLocaleString()} obje`;
     if(i<totalLines-1){
       if(_dxfCancelled){if(prog)prog.style.display='none';return;}
+      // Mobil RAM koruması — 100k objeyi geçince uyar
+      const total=_geo.length+_txt.length;
+      const isMobile=/iPhone|iPad|Android/i.test(navigator.userAgent);
+      if(isMobile && total>150000){
+        if(prog)prog.style.display='none';
+        if(confirm(`⚠️ ${total.toLocaleString()} obje tespit edildi.\n\nMobil cihaz için çok büyük olabilir.\n\nŞimdiye kadar yüklenen ${_geo.length.toLocaleString()} geometri ile devam edilsin mi?`)){
+          renderPhase();
+        } else {
+          showToast('Yükleme iptal edildi');
+        }
+        return;
+      }
       requestAnimationFrame(parseChunk);
     } else {
       if(progText)progText.textContent='Haritaya ekleniyor...';
@@ -1159,7 +1186,11 @@ function parseDXFWithProj(text,name,offset){
                 textDone=true;
                 _txt.forEach(o=>{
                   if(o.t==='PT'){L.circleMarker([o.lat,o.lng],{radius:4,color:o.c,fillColor:o.c,fillOpacity:0.9,renderer:_canvasRenderer}).addTo(lgText);}
-                  else{const rot=o.rot?`rotate(${-o.rot}deg)`:'';L.marker([o.lat,o.lng],{icon:L.divIcon({html:`<div style="color:${o.c};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${o.lbl.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);}
+                  else{const rot=o.rot?`rotate(${-o.rot}deg)`:'';
+                const isDark=currentBase==='dark';
+                const bg=isDark?'rgba(15,15,26,0.8)':'rgba(255,255,255,0.82)';
+                const shadow=isDark?'0 0 2px #000':'0 0 2px #fff';
+                L.marker([o.lat,o.lng],{icon:L.divIcon({html:`<div style="color:${o.c};font-family:'Inter',sans-serif;font-size:13px;font-weight:600;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;background:${bg};padding:1px 4px;border-radius:3px;line-height:1.4;box-shadow:${shadow};">${o.lbl.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);}
                 });
               }
               if(!map.hasLayer(lgText))lgText.addTo(map);
