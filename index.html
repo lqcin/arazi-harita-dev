@@ -246,7 +246,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     <div class="tool-btn" id="btn-settings" onclick="togglePanel('settings-panel','btn-settings');closeMore()"><span class="icon">⚙️</span><span id="btn-settings-lbl">Ayarlar</span></div>
     <div class="tool-btn" id="btn-projects" onclick="togglePanel('projects-panel','btn-projects');closeMore()"><span class="icon">📁</span><span id="btn-projects-lbl">Projeler</span></div>
     <div class="tool-btn" id="btn-rec" onclick="toggleRecord();closeMore()"><span class="icon">⏺</span><span>Rota</span></div>
-    <div class="tool-btn" onclick="exportMapKML();closeMore()"><span class="icon">📤</span><span>KML Gönder</span></div>
+    <div class="tool-btn" onclick="exportMapKML();closeMore()"><span class="icon">📤</span><span>KMZ Gönder</span></div>
   </div>
 </div>
 <!-- Projeler paneli -->
@@ -2469,7 +2469,7 @@ let _allGeoData=[]; // tüm yüklenen DXF geometrisi
 
 function escKML(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function exportMapKML(){
+async function exportMapKML(){
   const total=_allGeoData.length+_textMarkers.length+kmlObjects.length+(typeof pins!=='undefined'?pins.length:0);
   if(total===0){showToast('Önce bir dosya yükleyin');return;}
   let kml=`<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n<name>Field Map Export</name>\n`;
@@ -2521,12 +2521,24 @@ function exportMapKML(){
   });
 
   kml+=`</Document>\n</kml>`;
-  const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='field-map-export.kml';
-  a.click();
-  showToast(`KML hazır — ${total.toLocaleString()} obje`);
+
+  // JSZip ile KMZ oluştur (KML'in zip'i — çok daha küçük)
+  try{
+    const zip=new JSZip();
+    zip.file('doc.kml',kml);
+    const kmzBlob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(kmzBlob);
+    a.download='field-map-export.kmz';
+    a.click();
+    showToast(`KMZ hazır — ${total.toLocaleString()} obje`);
+  } catch(e){
+    // JSZip hatası — düz KML indir
+    const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='field-map-export.kml';a.click();
+    showToast(`KML hazır — ${total.toLocaleString()} obje`);
+  }
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
