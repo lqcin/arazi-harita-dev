@@ -734,13 +734,60 @@ function setDistMode(m){
   document.getElementById('dmode-area').classList.toggle('active',m==='area');
   document.getElementById('dist-hint').textContent=m==='line'?'Haritada iki noktaya dokun':'En az 3 noktaya dokun, son noktaya çift dokun';
 }
-// ── Snap motoru ───────────────────────────────────────────
-// Snap tipleri (öncelik sırası): VERTEX > MIDPOINT > SEGMENT
+// ── Quadtree Spatial Index ────────────────────────────────
+// Basit grid tabanlı spatial index — tam quadtree yerine daha hızlı implement
+class SpatialGrid {
+  constructor(cellSize=0.005) {
+    this.cells = {};
+    this.cellSize = cellSize;
+    this.count = 0;
+  }
+  _key(lat,lng) {
+    return `${Math.floor(lat/this.cellSize)}_${Math.floor(lng/this.cellSize)}`;
+  }
+  add(latlng) {
+    const k = this._key(latlng.lat, latlng.lng);
+    if(!this.cells[k]) this.cells[k] = [];
+    this.cells[k].push(latlng);
+    this.count++;
+  }
+  clear() { this.cells = {}; this.count = 0; }
+  // Verilen noktanın etrafındaki hücreleri tara
+  nearest(latlng, maxDist) {
+    const steps = Math.ceil(maxDist / (this.cellSize * 111320)) + 1;
+    const cx = Math.floor(latlng.lat / this.cellSize);
+    const cy = Math.floor(latlng.lng / this.cellSize);
+    let best = null, bestD = maxDist;
+    for(let dx=-steps; dx<=steps; dx++) {
+      for(let dy=-steps; dy<=steps; dy++) {
+        const k = `${cx+dx}_${cy+dy}`;
+        const cell = this.cells[k];
+        if(!cell) continue;
+        for(const v of cell) {
+          const d = latlng.distanceTo(v);
+          if(d < bestD) { bestD = d; best = v; }
+        }
+      }
+    }
+    return best ? {ll: best, dist: bestD} : null;
+  }
+}
+
+const _vertexGrid = new SpatialGrid(0.002);
+
+// allVertices.push override — grid'e de ekle
+const _origAllVerticesPush = Array.prototype.push;
+// allVertices için proxy kullan
+function _addVertex(latlng) {
+  allVertices.push(latlng);
+  _vertexGrid.add(latlng);
+}
+
+// ── Snap motoru (Quadtree destekli) ───────────────────────
 function _snapActive() {
   return distModeActive || pinMode;
 }
 
-// Segment üzerinde en yakın nokta (Euclidean — lat/lng küçük alanda yeterli)
 function _closestPointOnSegment(p, a, b) {
   const dx = b[0]-a[0], dy = b[1]-a[1];
   if(dx===0&&dy===0) return a;
@@ -751,21 +798,35 @@ function _closestPointOnSegment(p, a, b) {
 function findSnapPoint(latlng) {
   if(!allVertices.length&&!allSnapSegments.length) return null;
   const zoom = map.getZoom();
-  // snapRadius px → metre (ekvatorda)
   const snapMeters = snapRadius * 40075016 * Math.cos(latlng.lat*Math.PI/180) / (256*Math.pow(2,zoom));
   const p = [latlng.lat, latlng.lng];
 
-  // 1) Köşe snap (en yüksek öncelik)
-  let bestVertex=null, bestVDist=snapMeters;
-  for(const v of allVertices){
-    const d=latlng.distanceTo(v);
-    if(d<bestVDist){bestVDist=d;bestVertex=v;}
-  }
-  if(bestVertex) return {ll:bestVertex, type:'vertex'};
+  // 1) Köşe snap — grid ile hızlı ara
+  const vResult = _vertexGrid.count > 0
+    ? _vertexGrid.nearest(latlng, snapMeters)
+    : null;
+  if(vResult) return {ll: vResult.ll, type:'vertex'};
 
-  // 2) Midpoint snap (köşeye yapışmadıysa)
+  // Fallback: grid boşsa lineer tara
+  if(_vertexGrid.count === 0 && allVertices.length) {
+    let best=null, bestD=snapMeters;
+    for(const v of allVertices){const d=latlng.distanceTo(v);if(d<bestD){bestD=d;best=v;}}
+    if(best) return {ll:best, type:'vertex'};
+  }
+
+  // 2) Midpoint + segment snap — sadece yakın bbox'ta olanları tara
+  const latTol = snapMeters / 111320;
+  const lngTol = snapMeters / (111320 * Math.cos(latlng.lat*Math.PI/180));
+  const nearSegs = allSnapSegments.filter(seg => {
+    const minLat=Math.min(seg[0][0],seg[1][0])-latTol;
+    const maxLat=Math.max(seg[0][0],seg[1][0])+latTol;
+    const minLng=Math.min(seg[0][1],seg[1][1])-lngTol;
+    const maxLng=Math.max(seg[0][1],seg[1][1])+lngTol;
+    return p[0]>=minLat&&p[0]<=maxLat&&p[1]>=minLng&&p[1]<=maxLng;
+  });
+
   let bestMid=null, bestMDist=snapMeters;
-  for(const seg of allSnapSegments){
+  for(const seg of nearSegs){
     const mid=[(seg[0][0]+seg[1][0])/2,(seg[0][1]+seg[1][1])/2];
     const midLl=L.latLng(mid[0],mid[1]);
     const d=latlng.distanceTo(midLl);
@@ -773,9 +834,9 @@ function findSnapPoint(latlng) {
   }
   if(bestMid) return {ll:bestMid, type:'midpoint'};
 
-  // 3) Segment üzerinde en yakın nokta
-  let bestSeg=null, bestSDist=snapMeters*0.6; // segment snap biraz daha kısa menzil
-  for(const seg of allSnapSegments){
+  // 3) Segment snap
+  let bestSeg=null, bestSDist=snapMeters*0.6;
+  for(const seg of nearSegs){
     const closest=_closestPointOnSegment(p,seg[0],seg[1]);
     const closestLl=L.latLng(closest[0],closest[1]);
     const d=latlng.distanceTo(closestLl);
@@ -786,7 +847,6 @@ function findSnapPoint(latlng) {
   return null;
 }
 
-// Geriye uyumluluk — eski çağrılar için
 function findSnapVertex(latlng) {
   const r=findSnapPoint(latlng);
   return r?r.ll:null;
@@ -1048,8 +1108,10 @@ function parseKML(text,name){
     const lineEl=pm.querySelector('LineString coordinates');
     const polyEl=pm.querySelector('Polygon outerBoundaryIs LinearRing coordinates');
     const ptEl=pm.querySelector('Point coordinates');
-    if(lineEl){const pts=kmlPts(lineEl.textContent);if(pts.length){const pl=L.polyline(pts,{color,weight:2}).addTo(lg);pl.bindPopup(pname||'Çizgi');pl.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Çizgi',pts,type:'line'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Çizgi',ll:L.latLng(pts[0]),pts,type:'line'});pts.forEach(p=>allVertices.push(L.latLng(p[0],p[1])));for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
-    if(polyEl){const pts=kmlPts(polyEl.textContent);if(pts.length){const pg=L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg);pg.bindPopup(pname||'Alan');pg.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Alan',pts,type:'poly'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Alan',ll:L.latLng(pts[0]),pts,type:'poly'});pts.forEach(p=>allVertices.push(L.latLng(p[0],p[1])));for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
+    if(lineEl){const pts=kmlPts(lineEl.textContent);if(pts.length){const pl=L.polyline(pts,{color,weight:2}).addTo(lg);pl.bindPopup(pname||'Çizgi');pl.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Çizgi',pts,type:'line'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Çizgi',ll:L.latLng(pts[0]),pts,type:'line'});pts.forEach(p=>
+_addVertex(L.latLng(p[0],p[1])));for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
+    if(polyEl){const pts=kmlPts(polyEl.textContent);if(pts.length){const pg=L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg);pg.bindPopup(pname||'Alan');pg.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:pname||'Alan',pts,type:'poly'});});pts.forEach(p=>coords.push(p));kmlObjects.push({name:pname||'Alan',ll:L.latLng(pts[0]),pts,type:'poly'});pts.forEach(p=>
+_addVertex(L.latLng(p[0],p[1])));for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
     if(ptEl){const p=ptEl.textContent.trim().split(/[\s,]+/);if(p.length>=2){const lat=parseFloat(p[1]),lng=parseFloat(p[0]);if(!isNaN(lat)&&!isNaN(lng)){L.circleMarker([lat,lng],{radius:5,color,fillColor:color,fillOpacity:0.9}).addTo(lg).bindPopup(pname||'Nokta');coords.push([lat,lng]);kmlObjects.push({name:pname||'Nokta',ll:L.latLng(lat,lng),pts:[[lat,lng]],type:'point'});count++;}}}
   });
   if(coords.length){
@@ -1229,11 +1291,15 @@ function parseDXFWithProj(text,name,offset){
           const color=resolveColor(entityACI,layerName);
           const conv=(x,y)=>convertCoord(x,y,offset);
           const valid=(lat,lng)=>!isNaN(lat)&&!isNaN(lng)&&lat>=-90&&lat<=90&&lng>=-180&&lng<=180&&!(lat===0&&lng===0);
-          if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9}).addTo(lg);coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));count++;}}
-          else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){L.polyline([[la1,ln1],[la2,ln2]],{color,weight:1.5}).addTo(lg);coords.push([la1,ln1],[la2,ln2]);allVertices.push(L.latLng(la1,ln1),L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);count++;}}
-          else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
-          else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){const circ=L.circle([lat,lng],{radius,color,weight:1.5,fillOpacity:0.06}).addTo(lg);circ.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:'Daire',pts:[[lat,lng]],type:'circle',radius});});coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));count++;}}
-          else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
+          if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9}).addTo(lg);coords.push([lat,lng]);
+_addVertex(L.latLng(lat,lng));count++;}}
+          else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){L.polyline([[la1,ln1],[la2,ln2]],{color,weight:1.5}).addTo(lg);coords.push([la1,ln1],[la2,ln2]);_addVertex(L.latLng(la1,ln1));_addVertex(L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);count++;}}
+          else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);
+_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
+          else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){const circ=L.circle([lat,lng],{radius,color,weight:1.5,fillOpacity:0.06}).addTo(lg);circ.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:'Daire',pts:[[lat,lng]],type:'circle',radius});});coords.push([lat,lng]);
+_addVertex(L.latLng(lat,lng));count++;}}
+          else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);
+_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
           else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0&&y20.length>0){
             const[lat,lng]=conv(x10[0],y20[0]);
             if(valid(lat,lng)){
@@ -1508,11 +1574,15 @@ function parseDXFChunked(text, name, offset, selectedLayers) {
 
           if(x10.length>0&&y20.length>0){
             const color=resolveColorL(entityACI,layerName);
-            if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9}).addTo(lg);coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));count++;}}
-            else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){L.polyline([[la1,ln1],[la2,ln2]],{color,weight:1.5}).addTo(lg);coords.push([la1,ln1],[la2,ln2]);allVertices.push(L.latLng(la1,ln1),L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);count++;}}
-            else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
-            else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){const circ=L.circle([lat,lng],{radius,color,weight:1.5,fillOpacity:0.06}).addTo(lg);circ.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:'Daire',pts:[[lat,lng]],type:'circle',radius});});coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));count++;}}
-            else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
+            if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9}).addTo(lg);coords.push([lat,lng]);
+_addVertex(L.latLng(lat,lng));count++;}}
+            else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){L.polyline([[la1,ln1],[la2,ln2]],{color,weight:1.5}).addTo(lg);coords.push([la1,ln1],[la2,ln2]);_addVertex(L.latLng(la1,ln1));_addVertex(L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);count++;}}
+            else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);
+_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
+            else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){const circ=L.circle([lat,lng],{radius,color,weight:1.5,fillOpacity:0.06}).addTo(lg);circ.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:'Daire',pts:[[lat,lng]],type:'circle',radius});});coords.push([lat,lng]);
+_addVertex(L.latLng(lat,lng));count++;}}
+            else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);
+_addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
             else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0&&y20.length>0){
               const[lat,lng]=conv(x10[0],y20[0]);
               if(valid(lat,lng)){
@@ -2045,7 +2115,7 @@ function deleteUserProject(id) {
 
 function clearAllLayers() {
   Object.values(layerGroups).forEach(lg=>map.removeLayer(lg.layer));
-  layerGroups={};allBounds=null;kmlObjects=[];allVertices=[];allSnapSegments=[];
+  layerGroups={};allBounds=null;kmlObjects=[];allVertices=[];allSnapSegments=[];_vertexGrid.clear();
   renderLayerList();
   document.getElementById('file-label').textContent='DXF · KML · KMZ';
 }
