@@ -481,7 +481,10 @@ let selectedProj='turef_tm30',pendingDXFText=null,pendingDXFName=null;
 window.addEventListener('load',()=>{initMap();setTimeout(()=>document.getElementById('loading').style.display='none',700);});
 
 function initMap(){
-  map=L.map('map',{zoomControl:false,attributionControl:false});
+  // Canvas renderer — SVG yerine canvas, 750k+ obje için şart
+  const _canvasRenderer = L.canvas({padding:0.5, tolerance:5});
+
+  map=L.map('map',{zoomControl:false,attributionControl:false,preferCanvas:true,renderer:_canvasRenderer});
   baseLayers.osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:22});
   baseLayers.sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
   baseLayers.topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17});
@@ -489,7 +492,16 @@ function initMap(){
   baseLayers.osm.addTo(map);
   map.setView([39.0,35.0],6);
   map.on('click',e=>{closeMore();onMapClick(e);});
-  map.on('mousemove',e=>{ showSnapPreview(e.latlng);document.getElementById('coord-display').textContent=e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5);});
+
+  // Mousemove throttle — her frame'de değil 50ms'de bir snap hesapla
+  let _lastMouseMove=0;
+  map.on('mousemove',e=>{
+    document.getElementById('coord-display').textContent=e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5);
+    const now=Date.now();
+    if(now-_lastMouseMove<50)return; // 50ms throttle
+    _lastMouseMove=now;
+    showSnapPreview(e.latlng);
+  });
   // Long press kaldırıldı — donmaya neden oluyordu
   // Nokta ekleme: Nokta butonu → haritaya tek dokun
   document.body.addEventListener('dragover',e=>e.preventDefault());
@@ -1508,9 +1520,10 @@ function parseDXFChunked(text, name, offset, selectedLayers) {
   progBar.style.width='0%';
   progText.textContent='Hazırlanıyor...';
 
-  const lines = text.split('\n').map(l=>l.trim());
+  const lines = text.replace(/\r/g,'').split('\n').map(l=>l.trim());
   const layerColors = parseDXFLayerColors(lines);
-  const lg = L.layerGroup();
+  const lg = L.layerGroup();      // ana geometri (line, poly, circle)
+  const lgText = L.layerGroup();  // text + point — zoom 15+ görünür
   const coords = [];
   const fallbackColor = COLORS[colorIdx++%COLORS.length];
   let count = 0, i = 0;
@@ -1574,7 +1587,7 @@ function parseDXFChunked(text, name, offset, selectedLayers) {
 
           if(x10.length>0&&y20.length>0){
             const color=resolveColorL(entityACI,layerName);
-            if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9}).addTo(lg);coords.push([lat,lng]);
+            if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){L.circleMarker([lat,lng],{radius:4,color,fillColor:color,fillOpacity:0.9,renderer:_canvasRenderer}).addTo(lgText);coords.push([lat,lng]);
 _addVertex(L.latLng(lat,lng));count++;}}
             else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){L.polyline([[la1,ln1],[la2,ln2]],{color,weight:1.5}).addTo(lg);coords.push([la1,ln1],[la2,ln2]);_addVertex(L.latLng(la1,ln1));_addVertex(L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);count++;}}
             else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);
@@ -1593,7 +1606,7 @@ _addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegment
                   .replace(/%%u/gi,'').replace(/%%o/gi,'').replace(/[{}]/g,'').trim();
                 if(label){
                   const rot=textRotation?`rotate(${-textRotation}deg)`:'';
-                  L.marker([lat,lng],{icon:L.divIcon({html:`<div style="color:${color};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${label.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lg);
+                  L.marker([lat,lng],{icon:L.divIcon({html:`<div style="color:${color};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${label.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);
                   coords.push([lat,lng]);count++;
                 }
               }
@@ -1619,12 +1632,22 @@ _addVertex(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegment
         const b=L.latLngBounds(coords);
         allBounds=b;
         lg.addTo(map);
+        // Text + point katmanı: sadece zoom 15+ görünür
+        const TEXT_MIN_ZOOM = 15;
+        function _updateTextLayer() {
+          const z = map.getZoom();
+          if(z >= TEXT_MIN_ZOOM) { if(!map.hasLayer(lgText)) lgText.addTo(map); }
+          else { if(map.hasLayer(lgText)) map.removeLayer(lgText); }
+        }
+        _updateTextLayer();
+        map.on('zoomend', _updateTextLayer);
+
         const sw=b.getSouthWest(),ne=b.getNorthEast();
         const isSmall=Math.abs(ne.lat-sw.lat)<0.001&&Math.abs(ne.lng-sw.lng)<0.001;
         if(isSmall)map.setView(b.getCenter(),16);
         else map.fitBounds(b,{padding:[30,30],maxZoom:19});
         addLayer(name,lg,fallbackColor,count+' obj',b);
-        showToast(count.toLocaleString()+' obje yüklendi');
+        showToast(count.toLocaleString()+' obje yüklendi — text zoom 15+ görünür');
       } else {
         showToast('Geometri bulunamadı — koordinat sistemi doğru mu?');
       }
