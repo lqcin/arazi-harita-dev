@@ -1094,20 +1094,41 @@ function parseDXFWithProj(text,name,offset){
     }
   }
 
-  // Aşama 2: Render
+  // Aşama 2: Render — zoom LOD ile 3 katman
   function renderPhase(){
-    const lg=L.layerGroup();
-    const lgText=L.layerGroup();
+    // LOD grupları: lg0=ana (her zoom), lg1=orta (zoom 13+), lg2=detay (zoom 16+)
+    const lg0=L.layerGroup(); // büyük poligon/çizgi — her zaman görünür
+    const lg1=L.layerGroup(); // orta çizgiler — zoom 13+
+    const lg2=L.layerGroup(); // küçük detay — zoom 16+
+    const lgText=L.layerGroup(); // text — zoom 15+
+
+    // Obje boyutuna göre LOD grubu seç
+    function getLOD(o){
+      if(o.t==='PL'&&o.closed){
+        // Poligon boyutuna göre — büyük poligonlar her zaman görünür
+        const lats=o.pts.map(p=>p[0]),lngs=o.pts.map(p=>p[1]);
+        const size=Math.max(...lats)-Math.min(...lats)+Math.max(...lngs)-Math.min(...lngs);
+        return size>0.001?0:size>0.0001?1:2;
+      }
+      if(o.t==='LN'||o.t==='SP'){
+        const size=Math.hypot(o.pts[o.pts.length-1][0]-o.pts[0][0],o.pts[o.pts.length-1][1]-o.pts[0][1]);
+        return size>0.005?0:size>0.0005?1:2;
+      }
+      return 1;
+    }
+
     let ri=0;
     const RCHUNK=5000;
     function renderStep(){
       const end=Math.min(ri+RCHUNK,_geo.length);
       for(;ri<end;ri++){
         const o=_geo[ri];
-        if(o.t==='LN')L.polyline(o.pts,{color:o.c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);
-        else if(o.t==='PL')o.closed?L.polygon(o.pts,{color:o.c,weight:2,fillOpacity:0.1,renderer:_canvasRenderer}).addTo(lg):L.polyline(o.pts,{color:o.c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);
-        else if(o.t==='CR')L.circle([o.lat,o.lng],{radius:o.r,color:o.c,weight:1.5,fillOpacity:0.06,renderer:_canvasRenderer}).addTo(lg);
-        else if(o.t==='SP')L.polyline(o.pts,{color:o.c,weight:1.5,renderer:_canvasRenderer}).addTo(lg);
+        const lod=getLOD(o);
+        const target=lod===0?lg0:lod===1?lg1:lg2;
+        if(o.t==='LN')L.polyline(o.pts,{color:o.c,weight:1.5,renderer:_canvasRenderer}).addTo(target);
+        else if(o.t==='PL')o.closed?L.polygon(o.pts,{color:o.c,weight:2,fillOpacity:0.1,renderer:_canvasRenderer}).addTo(target):L.polyline(o.pts,{color:o.c,weight:1.5,renderer:_canvasRenderer}).addTo(target);
+        else if(o.t==='CR')L.circle([o.lat,o.lng],{radius:o.r,color:o.c,weight:1.5,fillOpacity:0.06,renderer:_canvasRenderer}).addTo(target);
+        else if(o.t==='SP')L.polyline(o.pts,{color:o.c,weight:1.5,renderer:_canvasRenderer}).addTo(target);
       }
       const pct=Math.round((ri/Math.max(_geo.length,1))*100);
       if(progBar)progBar.style.width=pct+'%';
@@ -1120,27 +1141,39 @@ function parseDXFWithProj(text,name,offset){
         if(_coords.length){
           const b=L.latLngBounds(_coords);
           allBounds=b;
-          lg.addTo(map);
-          // Text/Point: zoom 15+ lazy render
+          lg0.addTo(map); // ana katman her zaman açık
+
+          // Zoom değişince katmanları güncelle
           let textDone=false;
-          function showText(){
+          function updateLOD(){
             const z=map.getZoom();
+            // lg1 — zoom 13+
+            if(z>=13){if(!map.hasLayer(lg1))lg1.addTo(map);}
+            else{if(map.hasLayer(lg1))map.removeLayer(lg1);}
+            // lg2 — zoom 16+
+            if(z>=16){if(!map.hasLayer(lg2))lg2.addTo(map);}
+            else{if(map.hasLayer(lg2))map.removeLayer(lg2);}
+            // text — zoom 15+
             if(z>=15){
-              if(!textDone){textDone=true;_txt.forEach(o=>{
-                if(o.t==='PT')L.circleMarker([o.lat,o.lng],{radius:4,color:o.c,fillColor:o.c,fillOpacity:0.9,renderer:_canvasRenderer}).addTo(lgText);
-                else{const rot=o.rot?`rotate(${-o.rot}deg)`:'';L.marker([o.lat,o.lng],{icon:L.divIcon({html:`<div style="color:${o.c};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${o.lbl.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);}
-              });}
+              if(!textDone){
+                textDone=true;
+                _txt.forEach(o=>{
+                  if(o.t==='PT'){L.circleMarker([o.lat,o.lng],{radius:4,color:o.c,fillColor:o.c,fillOpacity:0.9,renderer:_canvasRenderer}).addTo(lgText);}
+                  else{const rot=o.rot?`rotate(${-o.rot}deg)`:'';L.marker([o.lat,o.lng],{icon:L.divIcon({html:`<div style="color:${o.c};font-family:'Inter',sans-serif;font-size:13px;font-weight:500;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;text-shadow:0 0 2px #0f0f1a,-1px -1px 0 #0f0f1a,1px -1px 0 #0f0f1a,-1px 1px 0 #0f0f1a,1px 1px 0 #0f0f1a;">${o.lbl.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);}
+                });
+              }
               if(!map.hasLayer(lgText))lgText.addTo(map);
             } else {
               if(map.hasLayer(lgText))map.removeLayer(lgText);
             }
           }
-          map.on('zoomend',showText);showText();
+          map.on('zoomend',updateLOD);
+          updateLOD();
           const sw=b.getSouthWest(),ne=b.getNorthEast();
           const isSmall=Math.abs(ne.lat-sw.lat)<0.001&&Math.abs(ne.lng-sw.lng)<0.001;
           if(isSmall)map.setView(b.getCenter(),16);
           else map.fitBounds(b,{padding:[30,30],maxZoom:19});
-          addLayer(name,lg,color,(_geo.length+_txt.length)+' obj',b);
+          addLayer(name,lg0,color,(_geo.length+_txt.length)+' obj',b);
           showToast((_geo.length+_txt.length).toLocaleString()+' obje yüklendi');
         } else {
           showToast('Geometri bulunamadı — koordinat sistemi doğru mu?');
