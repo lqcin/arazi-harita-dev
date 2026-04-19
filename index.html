@@ -948,11 +948,44 @@ function handleFile(file){
   else showToast('Desteklenmeyen format');
 }
 function autoLoadFile(filename){
-  const isKMZ=filename.toLowerCase().endsWith('.kmz');
-  fetch(filename).then(r=>{if(!r.ok)throw new Error();return isKMZ?r.arrayBuffer():r.text();}).then(data=>{
-    document.getElementById('file-label').textContent=filename;
-    if(isKMZ)parseKMZ(data,filename);else parseKML(data,filename);
-  }).catch(()=>{});
+  const name=filename.toLowerCase();
+  fetch(filename).then(r=>{
+    if(!r.ok)throw new Error('Dosya bulunamadı: '+filename);
+    if(name.endsWith('.kmz'))return r.arrayBuffer().then(d=>parseKMZ(d,filename));
+    if(name.endsWith('.kml'))return r.text().then(d=>parseKML(d,filename));
+    if(name.endsWith('.dxf'))return r.arrayBuffer().then(buf=>{
+      let text;
+      try{text=new TextDecoder('utf-8',{fatal:true}).decode(buf);}
+      catch{try{text=new TextDecoder('windows-1252').decode(buf);}catch{text=new TextDecoder('iso-8859-1').decode(buf);}}
+      text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+      openDxfRefModal(text,filename);
+    });
+    throw new Error('Desteklenmeyen format');
+  }).catch(e=>console.warn('autoLoadFile:',e));
+}
+
+function autoLoadFiles(files){
+  // Birden fazla dosyayı sırayla yükle
+  files.reduce((p,f)=>p.then(()=>new Promise(res=>{
+    const name=f.toLowerCase();
+    fetch(f).then(r=>{
+      if(!r.ok)throw new Error();
+      if(name.endsWith('.kmz'))return r.arrayBuffer().then(d=>{parseKMZ(d,f);setTimeout(res,500);});
+      if(name.endsWith('.kml'))return r.text().then(d=>{parseKML(d,f);setTimeout(res,300);});
+      if(name.endsWith('.dxf'))return r.arrayBuffer().then(buf=>{
+        let text;
+        try{text=new TextDecoder('utf-8',{fatal:true}).decode(buf);}
+        catch{try{text=new TextDecoder('windows-1252').decode(buf);}catch{text=new TextDecoder('iso-8859-1').decode(buf);}}
+        text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+        // Oto-parse — koordinat tahminiyle
+        const lines=text.replace(/\r/g,'').split('\n').map(l=>l.trim());
+        const guess=guessDXFProjection(lines);
+        if(guess)selectedProj=guess.key;
+        parseDXFWithProj(text,f,{});
+        setTimeout(res,500);
+      });
+    }).catch(()=>res());
+  })),Promise.resolve());
 }
 
 // ── KML ───────────────────────────────────────────────────
@@ -1106,26 +1139,12 @@ function parseDXFWithProj(text,name,offset){
           if(x10.length>0&&y20.length>0){
             const c=resolveC(aci,lname);
             if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_txt.push({t:'PT',c,lat,lng});_coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));}}
+            // TEXT/MTEXT — DXF'ten gelen text'ler yüklenmiyor, kullanıcı kendi yazısını ekleyebilir
             else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){_geo.push({t:'LN',c,pts:[[la1,ln1],[la2,ln2]]});_coords.push([la1,ln1],[la2,ln2]);allVertices.push(L.latLng(la1,ln1),L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);}}
             else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;_geo.push({t:'PL',c,pts,closed});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);}}
             else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_geo.push({t:'CR',c,lat,lng,r:radius});_coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));}}
             else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){_geo.push({t:'SP',c,pts});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);}}
-            else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){let lbl=(te+tc).trim()
-                .replace(/\\p[qlirx][^;]*;/gi,'')  // \pxql; \pqi; paragraph indent/align direktifleri
-                .replace(/\\P/g,'\n')              // \P büyük = paragraf sonu (satır başı)
-                .replace(/\\n/gi,'\n')
-                .replace(/\\~/g,' ')
-                .replace(/\\U\+[0-9A-Fa-f]{4}/g,'')
-                .replace(/\{[^}]*\}/g,'')          // {....} tüm blokları sil
-                .replace(/\\[A-Za-z0-9.,+\-]+;?/g,'') // \fArial; \H2; \W1; vb HEPSİ
-                .replace(/%%c/gi,'⌀')
-                .replace(/%%d/gi,'°')
-                .replace(/%%p/gi,'±')
-                .replace(/%%u/gi,'').replace(/%%o/gi,'')
-                .replace(/[{}|\\;<>]/g,'')         // kalan özel karakterler
-                .replace(/\s+/g,' ')
-                .trim();
-              if(lbl&&lbl.length>0&&lbl.length<200){_txt.push({t:'TX',c,lat,lng,lbl,rot});_coords.push([lat,lng]);}}}
+            // TEXT/MTEXT — DXF text'leri gösterilmiyor, kullanıcı 🔤 butonuyla kendi yazısını ekler
           }
         }
       }
@@ -1648,9 +1667,22 @@ function addObjToMeasure() {
   showToast(currentObjData.pts.length+' nokta ölçüme eklendi');
 }
 
-// ── Çoklu Proje Sistemi ───────────────────────────────────
-// Sabit projeler — GitHub'daki dosyalar
-const FIXED_PROJECTS = [];
+// ── Sabit Projeler — GitHub'daki dosyalar ────────────────
+// Her proje: {id, name, desc, files:[{path, proj}]}
+// files: birden fazla dosya (DXF + KML birlikte)
+// proj: DXF için koordinat sistemi (opsiyonel, ör: 'turef_tm30')
+const FIXED_PROJECTS = [
+  // Örnek — kendi dosyalarını buraya ekle:
+  // {
+  //   id:'cop31',
+  //   name:'COP31 Vaziyet Planı',
+  //   desc:'Antalya Blue-Green Zone',
+  //   files:[
+  //     {path:'data/cop31.dxf', proj:'turef_tm30'},
+  //     {path:'data/cop31_notlar.kml'}
+  //   ]
+  // },
+];
 
 let userProjects = JSON.parse(localStorage.getItem('userProjects')||'[]');
 let activeProjectId = localStorage.getItem('activeProject')||'';
@@ -1658,7 +1690,10 @@ let activeProjectId = localStorage.getItem('activeProject')||'';
 function renderProjectsPanel() {
   // Sabit projeler
   const fixedList = document.getElementById('proj-fixed-list');
-  fixedList.innerHTML = FIXED_PROJECTS.map(p => `
+  fixedList.innerHTML = FIXED_PROJECTS.map(p => {
+    const files=p.files||[];
+    const fileInfo=files.map(f=>f.path?.split('/').pop()||f).join(', ');
+    return `
     <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
       background:${activeProjectId===p.id?'rgba(74,158,255,0.1)':'transparent'};
       border:1px solid ${activeProjectId===p.id?'var(--accent)':'var(--border)'};margin-bottom:6px;cursor:pointer;"
@@ -1666,10 +1701,11 @@ function renderProjectsPanel() {
       <span style="font-size:16px;">📁</span>
       <div style="flex:1;">
         <div style="font-size:12px;font-weight:600;color:var(--text);">${p.name}</div>
-        <div style="font-size:10px;color:var(--text2);">${p.file}</div>
+        <div style="font-size:10px;color:var(--text2);">${p.desc||fileInfo}</div>
       </div>
-      ${activeProjectId===p.id?`<span style="font-size:10px;color:var(--accent);font-weight:600;">${t('projActive')}</span>`:''}
-    </div>`).join('');
+      ${activeProjectId===p.id?`<span style="font-size:10px;color:var(--accent);font-weight:600;">Aktif</span>`:''}
+    </div>`;
+  }).join('');
 
   // Kullanıcı projeleri
   const userList = document.getElementById('proj-user-list');
@@ -1696,11 +1732,22 @@ function switchToFixedProject(id) {
   if(!proj) return;
   activeProjectId = id;
   localStorage.setItem('activeProject', id);
-  // Mevcut katmanları temizle
   clearAllLayers();
-  autoLoadFile(proj.file);
   closeAllPanels();
-  showToast(t('projSwitch')+': '+proj.name);
+  showToast('Yükleniyor: '+proj.name);
+  // Çoklu dosya desteği
+  const files = proj.files || (proj.file ? [proj.file] : []);
+  if(Array.isArray(files) && files.length && typeof files[0]==='object'){
+    // Yeni format: [{path, proj}]
+    files.forEach(f=>{
+      if(f.proj) selectedProj=f.proj;
+      autoLoadFile(f.path);
+    });
+  } else {
+    // Eski format: string veya string[]
+    const fileList=Array.isArray(files)?files:[files];
+    autoLoadFiles(fileList);
+  }
   renderProjectsPanel();
 }
 
