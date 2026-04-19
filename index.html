@@ -1190,7 +1190,7 @@ function parseDXFWithProj(text,name,offset){
                 const isDark=currentBase==='dark';
                 const bg=isDark?'rgba(15,15,26,0.8)':'rgba(255,255,255,0.82)';
                 const shadow=isDark?'0 0 2px #000':'0 0 2px #fff';
-                L.marker([o.lat,o.lng],{icon:L.divIcon({html:`<div style="color:${o.c};font-family:'Inter',sans-serif;font-size:13px;font-weight:600;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;background:${bg};padding:1px 4px;border-radius:3px;line-height:1.4;box-shadow:${shadow};">${o.lbl.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:-5}).addTo(lgText);}
+                L.marker([o.lat,o.lng],{icon:L.divIcon({html:`<div style="color:${o.c};font-family:'Inter',sans-serif;font-size:13px;font-weight:600;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;background:${bg};padding:1px 4px;border-radius:3px;line-height:1.4;box-shadow:${shadow};">${o.lbl.replace(/\n/g,'<br>')}</div>`,className:'',iconAnchor:[0,6]}),interactive:false,zIndexOffset:1000}).addTo(lgText);}
                 });
               }
               if(!map.hasLayer(lgText))lgText.addTo(map);
