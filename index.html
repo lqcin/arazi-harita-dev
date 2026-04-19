@@ -2403,21 +2403,54 @@ function confirmTextInput(){
 
 function addTextMarker(lat,lng,text,color,size){
   const id='txt_'+Date.now();
-  const el=document.createElement('div');
-  el.style.cssText='position:relative;cursor:move;';
-  el.innerHTML=`<div id="tm_${id}" style="color:${color};font-family:'Inter',sans-serif;font-size:${size}px;font-weight:700;white-space:nowrap;background:rgba(15,15,26,0.75);padding:2px 6px;border-radius:4px;user-select:none;">${text}</div><span onclick="deleteTextMarker('${id}')" style="position:absolute;top:-8px;right:-8px;background:var(--danger);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;">×</span>`;
+
+  function getScaledSize(){
+    // Zoom 18 = tam boyut, her zoom azalışta yarıya in
+    const z=map.getZoom();
+    const scaled=Math.max(8, Math.round(size * Math.pow(2, z-18)));
+    return Math.min(scaled, size*4); // max 4x büyüme
+  }
+
+  function makeHTML(fs){
+    return `<div id="tm_${id}" style="color:${color};font-family:'Inter',sans-serif;font-size:${fs}px;font-weight:700;white-space:nowrap;background:rgba(15,15,26,0.75);padding:2px 6px;border-radius:4px;user-select:none;">${text}</div><span onclick="deleteTextMarker('${id}')" style="position:absolute;top:-8px;right:-8px;background:var(--danger);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;">×</span>`;
+  }
+
   const marker=new L.marker([lat,lng],{
-    icon:L.divIcon({html:el.outerHTML,className:'',iconAnchor:[0,0]}),
+    icon:L.divIcon({html:`<div style="position:relative;cursor:move;">${makeHTML(getScaledSize())}</div>`,className:'',iconAnchor:[0,0]}),
     draggable:true,
     zIndexOffset:2000
-  }).addTo(map);
-  _textMarkers.push({id,marker,text,color,size,lat,lng});
+  });
+
+  // Zoom değişince boyutu güncelle
+  function _updateSize(){
+    const fs=getScaledSize();
+    if(fs<6){
+      if(map.hasLayer(marker))map.removeLayer(marker);
+    } else {
+      if(!map.hasLayer(marker))marker.addTo(map);
+      const el=marker.getElement();
+      if(el){
+        const div=el.querySelector(`#tm_${id}`);
+        if(div)div.style.fontSize=fs+'px';
+      }
+    }
+  }
+
+  map.on('zoomend',_updateSize);
+  _updateSize();
+
+  _textMarkers.push({id,marker,text,color,size,lat,lng,_updateVisibility:_updateSize});
   showToast('Yazı eklendi');
 }
 
 function deleteTextMarker(id){
   const idx=_textMarkers.findIndex(t=>t.id===id);
-  if(idx>=0){map.removeLayer(_textMarkers[idx].marker);_textMarkers.splice(idx,1);}
+  if(idx>=0){
+    const t=_textMarkers[idx];
+    if(t._updateVisibility)map.off('zoomend',t._updateVisibility);
+    map.removeLayer(t.marker);
+    _textMarkers.splice(idx,1);
+  }
 }
 
 // ── KML Export — DXF geometri + text marker'lar ──────────
