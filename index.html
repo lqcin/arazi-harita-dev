@@ -1144,7 +1144,7 @@ function parseDXFWithProj(text,name,offset){
       const etype=lines[i+1].trim();
       if(['LINE','LWPOLYLINE','POLYLINE','POINT','CIRCLE','ARC','SPLINE','TEXT','MTEXT'].includes(etype)){
         const x10=[],y20=[];let x11=NaN,y21=NaN,flags=0,radius=0;
-        let entityACI=null,layerName='',textContent='',textHeight=0,textRotation=0;
+        let entityACI=null,layerName='',textContent='',textExtra='',textHeight=0,textRotation=0;
         let j=i+2;
         while(j<Math.min(i+500,lines.length-1)){
           const code=parseInt(lines[j]);const raw=lines[j+1]||'';const val=parseFloat(raw);
@@ -1156,7 +1156,8 @@ function parseDXFWithProj(text,name,offset){
           else if(code===70)flags=parseInt(raw);
           else if(code===40){if(etype==='TEXT'||etype==='MTEXT')textHeight=val;else radius=val;}
           else if(code===50)textRotation=val;
-          else if(code===1)textContent=raw.trim();
+          else if(code===1)textContent=raw.trim();   // ana içerik
+          else if(code===3)textExtra+=raw.trim();    // MTEXT uzun metin parçaları
           else if(code===62)entityACI=parseInt(raw);
           else if(code===8)layerName=raw.trim();
           j+=2;
@@ -1170,29 +1171,34 @@ function parseDXFWithProj(text,name,offset){
           else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;closed?L.polygon(pts,{color,weight:2,fillOpacity:0.1}).addTo(lg):L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);count++;}}
           else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){const circ=L.circle([lat,lng],{radius,color,weight:1.5,fillOpacity:0.06}).addTo(lg);circ.on('click',e=>{L.DomEvent.stopPropagation(e);showObjPanel({name:'Daire',pts:[[lat,lng]],type:'circle',radius});});coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));count++;}}
           else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){L.polyline(pts,{color,weight:1.5}).addTo(lg);pts.forEach(p=>{coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);count++;}}
-          else if((etype==='TEXT'||etype==='MTEXT')&&textContent&&x10.length>0&&y20.length>0){
+          else if((etype==='TEXT'||etype==='MTEXT')&&x10.length>0&&y20.length>0){
             const[lat,lng]=conv(x10[0],y20[0]);
             if(valid(lat,lng)){
-              // MTEXT formatting kodlarını temizle: \P=satır, \~=boşluk, {\\...} gruplar, \\f...;=font
-              let label=textContent
-                .replace(/\\P/gi,'\n')
-                .replace(/\\~/g,' ')
-                .replace(/\{\\[^;]+;/g,'')
-                .replace(/\}/g,'')
-                .replace(/\\[A-Za-z][^;]*;/g,'')
+              // MTEXT: kod 3 parçaları (uzun metin) + kod 1 birleştir
+              const raw=(textExtra+textContent).trim();
+              // MTEXT formatting temizle
+              let label=raw
+                .replace(/\\P/gi,'\n')        // paragraf sonu
+                .replace(/\\n/gi,'\n')
+                .replace(/\\~/g,' ')           // non-breaking space
+                .replace(/\{\\[^}]*\}/g,'')    // {\\fFont;...} font direktifleri
+                .replace(/\\[A-Za-z][^;]*;/g,'') // \H2x; \W1; vb.
                 .replace(/%%c/gi,'⌀')
                 .replace(/%%d/gi,'°')
                 .replace(/%%p/gi,'±')
+                .replace(/%%u/gi,'')           // underline toggle
+                .replace(/%%o/gi,'')           // overline toggle
+                .replace(/[{}]/g,'')
                 .trim();
-              if(!label)label=textContent.trim();
+              if(!label) label=raw.replace(/[\\{}\|]/g,'').trim();
               if(label){
-                // Yüksekliğe göre font boyutu — min 9, max 16px
-                const fs=Math.max(9,Math.min(16,Math.round((textHeight||2)*1.5)));
+                // Sabit 11px — zoom'dan bağımsız, harita üzerinde okunabilir
                 const rot=textRotation?`rotate(${-textRotation}deg)`:'';
                 const txtMarker=L.marker([lat,lng],{
                   icon:L.divIcon({
-                    html:`<div style="color:${color};font-size:${fs}px;font-weight:600;white-space:nowrap;transform:${rot};transform-origin:left center;pointer-events:none;text-shadow:0 0 3px #0f0f1a,0 0 3px #0f0f1a;">${label.replace(/\n/g,'<br>')}</div>`,
-                    className:'',iconAnchor:[0,fs/2]
+                    html:`<div style="color:${color};font-size:11px;font-weight:600;line-height:1.3;white-space:nowrap;transform-origin:left center;transform:${rot};pointer-events:none;text-shadow:0 0 3px #0f0f1a,0 0 3px #0f0f1a,0 0 3px #0f0f1a;">${label.replace(/\n/g,'<br>')}</div>`,
+                    className:'',
+                    iconAnchor:[0,6]
                   }),
                   interactive:false,
                   zIndexOffset:-5
