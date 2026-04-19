@@ -1140,7 +1140,7 @@ function parseDXFWithProj(text,name,offset){
             const c=resolveC(aci,lname);
             if(etype==='POINT'){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_txt.push({t:'PT',c,lat,lng});_coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));}}
             // TEXT/MTEXT — DXF'ten gelen text'ler yüklenmiyor, kullanıcı kendi yazısını ekleyebilir
-            else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){_geo.push({t:'LN',c,pts:[[la1,ln1],[la2,ln2]]});_coords.push([la1,ln1],[la2,ln2]);allVertices.push(L.latLng(la1,ln1),L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);}}
+            else if(etype==='LINE'&&!isNaN(x11)&&!isNaN(y21)){const[la1,ln1]=conv(x10[0],y20[0]);const[la2,ln2]=conv(x11,y21);if(valid(la1,ln1)&&valid(la2,ln2)){_allGeoData.push({t:'LN',c,pts:[[la1,ln1],[la2,ln2]]});_coords.push([la1,ln1],[la2,ln2]);allVertices.push(L.latLng(la1,ln1),L.latLng(la2,ln2));allSnapSegments.push([[la1,ln1],[la2,ln2]]);}}
             else if(etype==='LWPOLYLINE'&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){const closed=(flags&1)===1;_geo.push({t:'PL',c,pts,closed});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);if(closed&&pts.length>2)allSnapSegments.push([pts[pts.length-1],pts[0]]);}}
             else if(etype==='CIRCLE'&&radius>0){const[lat,lng]=conv(x10[0],y20[0]);if(valid(lat,lng)){_geo.push({t:'CR',c,lat,lng,r:radius});_coords.push([lat,lng]);allVertices.push(L.latLng(lat,lng));}}
             else if((etype==='SPLINE'||etype==='POLYLINE')&&x10.length>1){const pts=x10.map((x,k)=>{const[la,ln]=conv(x,y20[k]);return[la,ln];}).filter(p=>valid(p[0],p[1]));if(pts.length>1){_geo.push({t:'SP',c,pts});pts.forEach(p=>{_coords.push(p);allVertices.push(L.latLng(p[0],p[1]));});for(let s=0;s<pts.length-1;s++)allSnapSegments.push([pts[s],pts[s+1]]);}}
@@ -1222,6 +1222,8 @@ function parseDXFWithProj(text,name,offset){
           const b=L.latLngBounds(_coords);
           allBounds=b;
           lg0.addTo(map); // ana katman her zaman açık
+          // KML export için geometriyi sakla
+          _allGeoData.push(..._geo);
 
           // Zoom değişince katmanları güncelle
           let textDone=false;
@@ -1780,7 +1782,9 @@ function deleteUserProject(id) {
 
 function clearAllLayers() {
   Object.values(layerGroups).forEach(lg=>map.removeLayer(lg.layer));
-  layerGroups={};allBounds=null;kmlObjects=[];allVertices=[];
+  layerGroups={};allBounds=null;kmlObjects=[];allVertices=[];allSnapSegments=[];
+  if(typeof _vertexGrid!=='undefined')_vertexGrid.clear();
+  _allGeoData=[];
   renderLayerList();
   document.getElementById('file-label').textContent='DXF · KML · KMZ';
 }
@@ -2417,7 +2421,13 @@ function deleteTextMarker(id){
 }
 
 // ── KML Export — DXF geometri + text marker'lar ──────────
+let _allGeoData=[]; // tüm yüklenen DXF geometrisi
+
+function escKML(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
 function exportMapKML(){
+  const total=_allGeoData.length+_textMarkers.length+kmlObjects.length+(typeof pins!=='undefined'?pins.length:0);
+  if(total===0){showToast('Önce bir dosya yükleyin');return;}
   let kml=`<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n<name>Field Map Export</name>\n`;
 
   // Waypoint'ler (pin'ler)
@@ -2436,7 +2446,23 @@ function exportMapKML(){
     kml+=`<Placemark><name>${t.text}</name><description>text_marker</description><Point><coordinates>${ll.lng},${ll.lat},0</coordinates></Point></Placemark>\n`;
   });
 
-  // KML objeleri (yüklü DXF/KML geometrisi)
+  // DXF geometrisi
+  _allGeoData.forEach(o=>{
+    if(o.t==='LN'&&o.pts?.length>=2){
+      kml+=`<Placemark><LineString><coordinates>${o.pts.map(p=>`${p[1]},${p[0]},0`).join(' ')}</coordinates></LineString></Placemark>\n`;
+    } else if(o.t==='PL'&&o.pts?.length>=2){
+      const pts=o.closed?[...o.pts,o.pts[0]]:o.pts;
+      const coords=pts.map(p=>`${p[1]},${p[0]},0`).join(' ');
+      if(o.closed)kml+=`<Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>\n`;
+      else kml+=`<Placemark><LineString><coordinates>${coords}</coordinates></LineString></Placemark>\n`;
+    } else if(o.t==='SP'&&o.pts?.length>=2){
+      kml+=`<Placemark><LineString><coordinates>${o.pts.map(p=>`${p[1]},${p[0]},0`).join(' ')}</coordinates></LineString></Placemark>\n`;
+    } else if(o.t==='PT'){
+      kml+=`<Placemark><Point><coordinates>${o.lng},${o.lat},0</coordinates></Point></Placemark>\n`;
+    }
+  });
+
+  // KML objeleri (yüklü KML geometrisi)
   kmlObjects.forEach(o=>{
     if(o.type==='line'&&o.pts?.length){
       const coords=o.pts.map(p=>`${p[1]},${p[0]},0`).join(' ');
@@ -2456,7 +2482,7 @@ function exportMapKML(){
   a.href=URL.createObjectURL(blob);
   a.download='field-map-export.kml';
   a.click();
-  showToast('KML indirildi — karşı tarafa gönderin');
+  showToast(`KML hazır — ${total.toLocaleString()} obje`);
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
